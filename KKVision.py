@@ -64,7 +64,7 @@ def threshold_video(frame):
 
     # Convert BGR to HSV
     hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-    # define range of red in HSV
+    # define range of green light in HSV
     #lower_color = np.array([0,220,25])
     #upper_color = np.array([101, 255, 255])
     lower_color = np.array([65, 215, 125])
@@ -92,7 +92,8 @@ def findContours(frame, mask):
     image = frame.copy()
     # Processes the contours, takes in (contours, output_image, (centerOfImage) #TODO finding largest
     if len(contours) != 0:
-        image = findTargets(contours, image, centerX, centerY)
+        image = cv2.drawContours(frame, contours, -1, (0,0,255), 3)
+        #image = findTargets(contours, image, centerX, centerY)
     # Shows the contours overlayed on the original video
     return image
 
@@ -475,7 +476,7 @@ if __name__ == "__main__":
 
 
         threshold = threshold_video(frame)
-        outputStream.putFrame(threshold)
+        #outputStream.putFrame(threshold)
         processed = findContours(frame, threshold)
         # (optional) send some image back to the dashboard
-        #outputStream.putFrame(processed)
+        outputStream.putFrame(processed)
