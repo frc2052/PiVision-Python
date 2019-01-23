@@ -92,8 +92,9 @@ def findContours(frame, mask):
     image = frame.copy()
     # Processes the contours, takes in (contours, output_image, (centerOfImage) #TODO finding largest
     if len(contours) != 0:
-        image = cv2.drawContours(frame, contours, -1, (0,0,255), 3)
-        #image = findTargets(contours, image, centerX, centerY)
+        #the following line will draw red lines around targets
+        #image = cv2.drawContours(frame, contours, -1, (0,0,255), 3)
+        image = findTargets(contours, image, centerX, centerY)
     # Shows the contours overlayed on the original video
     return image
 
@@ -112,17 +113,19 @@ def findTargets(contours, image, centerX, centerY):
         cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
 
         biggestCnts = []
+        posXs = []
         for cnt in cntsSorted:
             # Get moments of contour; mainly for centroid
             M = cv2.moments(cnt)
             # Get convex hull (bounding polygon on contour)
-            hull = cv2.convexHull(cnt)
+            #hull = cv2.convexHull(cnt)
             # Calculate Contour area
-            cntArea = cv2.contourArea(cnt)
+            #cntArea = cv2.contourArea(cnt)
             # calculate area of convex hull
-            hullArea = cv2.contourArea(hull)
+            #hullArea = cv2.contourArea(hull)
             # Filters contours based off of size
-            if (checkContours(cntArea, hullArea)):
+            #if (checkContours(cntArea, hullArea)):
+            if (True):
                 ### MOSTLY DRAWING CODE, BUT CALCULATES IMPORTANT INFO ###
                 # Gets the centeroids of contour
                 if M["m00"] != 0:
@@ -132,55 +135,62 @@ def findTargets(contours, image, centerX, centerY):
                     cx, cy = 0, 0
                 if(len(biggestCnts) < 13):
                     #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
-                    rotation = getEllipseRotation(image, cnt)
+                    #rotation = getEllipseRotation(image, cnt)
 
                     # Calculates yaw of contour (horizontal position in degrees)
-                    yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
+                    #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
                     # Calculates yaw of contour (horizontal position in degrees)
-                    pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                    #pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
 
                     ##### DRAWS CONTOUR######
                     # Gets rotated bounding rectangle of contour
                     rect = cv2.minAreaRect(cnt)
+                    # Get the rotation of the rectangle
+                    #rect is the (top,left), (height,width), angle
+                    rotation = rect[2]
                     # Creates box around that rectangle
                     box = cv2.boxPoints(rect)
                     # Not exactly sure
                     box = np.int0(box)
                     # Draws rotated rectangle
-                    cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                    #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                    cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
 
 
                     # Calculates yaw of contour (horizontal position in degrees)
-                    yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
+                    #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
                     # Calculates yaw of contour (horizontal position in degrees)
-                    pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                    #pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
 
 
                     # Draws a vertical white line passing through center of contour
                     cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
                     # Draws a white circle at center of contour
-                    cv2.circle(image, (cx, cy), 6, (255, 255, 255))
+                    #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
 
                     # Draws the contours
-                    cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
+                    #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
 
                     # Gets the (x, y) and radius of the enclosing circle of contour
-                    (x, y), radius = cv2.minEnclosingCircle(cnt)
+                    #(x, y), radius = cv2.minEnclosingCircle(cnt)
                     # Rounds center of enclosing circle
-                    center = (int(x), int(y))
+                    #center = (int(x), int(y))
                     # Rounds radius of enclosning circle
-                    radius = int(radius)
+                    #radius = int(radius)
                     # Makes bounding rectangle of contour
-                    rx, ry, rw, rh = cv2.boundingRect(cnt)
-                    boundingRect = cv2.boundingRect(cnt)
+                    #rx, ry, rw, rh = cv2.boundingRect(cnt)
+                    #boundingRect = cv2.boundingRect(cnt)
                     # Draws countour of bounding rectangle and enclosing circle in green
-                    cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
+                    #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
 
-                    cv2.circle(image, center, radius, (23, 184, 80), 1)
+                    #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
                     # Appends important info to array
-                    if [cx, cy, rotation, cnt] not in biggestCnts:
-                         biggestCnts.append([cx, cy, rotation, cnt])
+                    #don't append if already in the array - determined by X position
+                    #if [cx, cy, rotation, cnt] not in biggestCnts:
+                    if cs not in posXs:
+                        posXs.append(cx)
+                        biggestCnts.append([cx, cy, rotation, cnt])
 
 
         # Sorts array based on coordinates (leftmost to rightmost) to make sure contours are adjacent
