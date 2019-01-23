@@ -201,6 +201,12 @@ def findTargets(contours, image, centerX, centerY):
             tilt1 = biggestCnts[i][2]
             tilt2 = biggestCnts[i + 1][2]
 
+            #openCV function minAreaRect returns a value between -90 and 0 (excluding 0) 
+            #testing shows that reflective tape for 2019 should be about -75 and -15 degrees
+            #so adding 45 degrees should result in two values on opposite sides of 0 for the test below
+            tilt1 = tilt1 + 45
+            tilt2 = tilt2 + 45 
+
             #x coords of contours
             cx1 = biggestCnts[i][0]
             cx2 = biggestCnts[i + 1][0]
@@ -208,6 +214,9 @@ def findTargets(contours, image, centerX, centerY):
             cy1 = biggestCnts[i][1]
             cy2 = biggestCnts[i + 1][1]
             # If contour angles are opposite
+
+            print("Angles: " + str(tilt1) + " : " + str(tilt2))
+
             if (np.sign(tilt1) != np.sign(tilt2)):
                 centerOfTarget = math.floor((cx1 + cx2) / 2)
                 #ellipse negative tilt means rotated to right
@@ -216,10 +225,12 @@ def findTargets(contours, image, centerX, centerY):
                 # If left contour rotation is tilted to the left then skip iteration
                 if (tilt1 > 0):
                     if (cx1 < cx2):
+                        print("Skipping contour - left is pointing left")
                         continue
-                # If left contour rotation is tilted to the left then skip iteration
+                # If right contour rotation is tilted to the right then skip iteration
                 if (tilt2 > 0):
                     if (cx2 < cx1):
+                        print("Skipping contour - right is pointing right")
                         continue
                 #Angle from center of camera to target (what you should pass into gyro)
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
