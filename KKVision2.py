@@ -25,13 +25,14 @@ import numpy as np
 from networktables import NetworkTables
 import math
 
+
 ###################### PROCESSING OPENCV ################################
 
 #Angles in radians
 
 #image size ratioed to 16:9
-image_width = 240
-image_height = 135
+image_width = 480
+image_height = 270
 
 #Lifecam 3000 from datasheet
 #Datasheet: https://dl2jx7zfbtwvr.cloudfront.net/specsheets/WEBC1010.pdf
@@ -57,22 +58,23 @@ def flipImage(frame):
 
 # Masks the video based on a range of hsv colors
 # Takes in a frame, returns a masked frame
+
+
 def threshold_video(frame):
-    img = frame.copy()
-    #blur = cv2.medianBlur(img, 3)
+    #img = frame.copy()
+    #blur = cv2.medianBlur(img, 5)
 
     # Convert BGR to HSV
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     # define range of green light in HSV
     #lower_color = np.array([0,220,25])
     #upper_color = np.array([101, 255, 255])
-    lower_color = np.array([60, 100, 215])
+    lower_color = np.array([60, 80, 200])
     upper_color = np.array([110, 255, 255])
     # hold the HSV image to get only red colors
     mask = cv2.inRange(hsv, lower_color, upper_color)
 
     # Returns the masked imageBlurs video to smooth out image
-
 
     return mask
 
@@ -89,45 +91,14 @@ def findContours(frame, mask):
     centerX = (screenWidth / 2) - .5
     centerY = (screenHeight / 2) - .5
     # Copies frame and stores it in image
-    image = frame.copy()
+    #image = frame.copy()
     # Processes the contours, takes in (contours, output_image, (centerOfImage) #TODO finding largest
     if len(contours) != 0:
         #the following line will draw red lines around targets
         #image = cv2.drawContours(frame, contours, -1, (0,0,255), 3)
-        image = findTargets(contours, image, centerX, centerY)
+        image = findTargets(contours, frame, centerX, centerY)
     # Shows the contours overlayed on the original video
-
-    img= frame.copy()
-    
-
-    #Drawing convexHull/
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    _, thresh = cv2.threshold(gray ,50, 255, cv2.THRESH_BINARY)
-    _, contour2, hierarchy = cv2.findContours( thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
-    #create am empty black image/
-
-
-    #draw contours and hull points/
-
-    #Creating hull array for convex hull points/
-    hull = []
-    
-
-    #calculate points for each contour
-    for i in range(len(contour2)):
-
-        #creating convex hull object for each contour
-        hull.append(cv2.convexHull(contour2[i], False))
-
-        color_contours = (0, 225, 0)#this makes color for contours green/
-        color = (225, 0, 0) #makes color for convex hull blue/
-        #draw it with contour/
-    #    cv2.drawContours(image, contour2, i, color_contours, 1, 8, hierarchy)
-        #draw ith cpnvex hull object
-     #   cv2.drawContours(image, hull, i, color, 1, 8)
-    
-    return image
+        return image
 
 
 
@@ -135,7 +106,7 @@ def findContours(frame, mask):
 # centerX is center x coordinate of image
 # centerY is center y coordinate of image
 def findTargets(contours, image, centerX, centerY):
-    screenHeight, screenWidth, channels = image.shape;
+    #screenHeight, screenWidth, channels = image.shape;
     #Seen vision targets (correct angle, adjacent to each other)
     targets = []
 
@@ -164,7 +135,7 @@ def findTargets(contours, image, centerX, centerY):
                     cy = int(M["m01"] / M["m00"])
                 else:
                     cx, cy = 0, 0
-                if(len(biggestCnts) < 13):
+                if(len(biggestCnts) < 7):
                     #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
                     #rotation = getEllipseRotation(image, cnt)
 
@@ -185,7 +156,7 @@ def findTargets(contours, image, centerX, centerY):
                     box = np.int0(box)
                     # Draws rotated rectangle
                     #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
-             #       cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
+                    cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
 
 
                     # Calculates yaw of contour (horizontal position in degrees)
@@ -195,7 +166,7 @@ def findTargets(contours, image, centerX, centerY):
 
 
                     # Draws a vertical white line passing through center of contour
-                    cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
+                    #cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
                     # Draws a white circle at center of contour
                     #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
 
@@ -219,7 +190,7 @@ def findTargets(contours, image, centerX, centerY):
                     # Appends important info to array
                     #don't append if already in the array - determined by X position
                     #if [cx, cy, rotation, cnt] not in biggestCnts:
-                    if cs not in posXs:
+                    if cx not in posXs:
                         posXs.append(cx)
                         biggestCnts.append([cx, cy, rotation, cnt])
 
@@ -267,27 +238,28 @@ def findTargets(contours, image, centerX, centerY):
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
                 
                 #Push to NetworkTable
-                table.putNumber("yawToTarget", yawToTarget)
+                #table.putNumber("yawToTarget", yawToTarget)
                 
                 #Make sure no duplicates, then append
                 if [centerOfTarget, yawToTarget] not in targets:
                     targets.append([centerOfTarget, yawToTarget])
+    print ("target count =" + str(len(targets)))
     #Check if there are targets seen
     if (len(targets) > 0):
         #Sorts targets based on x coords to break any angle tie
-        targets.sort(key=lambda x: math.fabs(x[0]))
+        #targets.sort(key=lambda x: math.fabs(x[0]))
         finalTarget = min(targets, key=lambda x: math.fabs(x[1]))
         # Puts the yaw on screen
         #Draws yaw of target + line where center of target is
-        cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
-                    (255, 255, 255))
-        cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
+        #cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,(255, 255, 255))
+                    
+        #cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
 
         currentAngleError = finalTarget[1]
         
         table.putNumber("currentAngleError", currentAngleError)
         
-    cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
+    #cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
 
     return image
 

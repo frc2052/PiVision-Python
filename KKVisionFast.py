@@ -66,7 +66,7 @@ def threshold_video(frame):
     # define range of green light in HSV
     #lower_color = np.array([0,220,25])
     #upper_color = np.array([101, 255, 255])
-    lower_color = np.array([60, 100, 215])
+    lower_color = np.array([60, 80, 215])
     upper_color = np.array([110, 255, 255])
     # hold the HSV image to get only red colors
     mask = cv2.inRange(hsv, lower_color, upper_color)
