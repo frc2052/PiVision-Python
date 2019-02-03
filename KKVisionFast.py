@@ -71,6 +71,7 @@ def threshold_video(frame):
     # hold the HSV image to get only red colors
     mask = cv2.inRange(hsv, lower_color, upper_color)
 
+
     # Returns the masked imageBlurs video to smooth out image
 
 
@@ -246,7 +247,7 @@ def findTargets(contours, image, centerX, centerY):
             cy2 = biggestCnts[i + 1][1]
             # If contour angles are opposite
 
-            print("Angles: " + str(tilt1) + " : " + str(tilt2))
+            #print("Angles: " + str(tilt1) + " : " + str(tilt2))
 
             if (np.sign(tilt1) != np.sign(tilt2)):
                 centerOfTarget = math.floor((cx1 + cx2) / 2)
@@ -267,7 +268,7 @@ def findTargets(contours, image, centerX, centerY):
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
                 
                 #Push to NetworkTable
-                table.putNumber("yawToTarget", yawToTarget)
+                #table.putNumber("yawToTarget", yawToTarget)
                 
                 #Make sure no duplicates, then append
                 if [centerOfTarget, yawToTarget] not in targets:
@@ -503,32 +504,65 @@ if __name__ == "__main__":
         cs, cameraCapture = startCamera(cameraConfig)
         streams.append(cs)
         cameras.append(cameraCapture)
+    
     #Get the first camera
-    cameraServer = streams[0]
+    cameraServer0 = streams[0]
+    
     # Get a CvSink. This will capture images from the camera
-    cvSink = cameraServer.getVideo()
+    cvSink0 = cameraServer0.getVideo()
+
+    if len(streams) > 0:
+        cameraServer1 = streams[1]
+        cvSink1 = cameraServer1.getVideo()
 
     # (optional) Setup a CvSource. This will send images back to the Dashboard
-    outputStream = cameraServer.putVideo("stream", image_width, image_height)
+    outputStream = cameraServer0.putVideo("stream", image_width, image_height)
     # Allocating new images is very expensive, always try to preallocate
     img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
 
+    table.putNumber('camIndex', 0)
+    
     # loop forever
     while True:
-        # Tell the CvSink to grab a frame from the camera and put it
-        # in the source image.  If there is an error notify the output.
-        timestamp, img = cvSink.grabFrame(img)
-        frame = img
-        #frame = flipImage(img)
-        if timestamp == 0:
-            # Send the output the error.
-            outputStream.notifyError(cvSink.getError());
-            # skip the rest of the current iteration
-            continue
+
+        camIndex = table.getNumber('camIndex', 0)
+
+        print("CamIndex " + str(camIndex))
+        if int(camIndex) == 0:
+            print("FRONT CAM")
+            # Tell the CvSink to grab a frame from the camera and put it
+            # in the source image.  If there is an error notify the output.
+            timestamp, img = cvSink0.grabFrame(img)
+            frame = img
+            #frame = flipImage(img)
+            if timestamp == 0:
+                # Send the output the error.
+                outputStream.notifyError(cvSink0.getError());
+                # skip the rest of the current iteration
+                continue
+            threshold = threshold_video(frame)
+            #outputStream.putFrame(threshold)
+            processed = findContours(frame, threshold)
+            # (optional) send some image back to the dashboard
+            outputStream.putFrame(processed)
 
 
-        threshold = threshold_video(frame)
-        #outputStream.putFrame(threshold)
-        processed = findContours(frame, threshold)
-        # (optional) send some image back to the dashboard
-        outputStream.putFrame(processed)
+        if int(camIndex) == 1:
+            print("BACK CAM")
+            # Tell the CvSink to grab a frame from the camera and put it
+            # in the source image.  If there is an error notify the output.
+            timestamp, img = cvSink1.grabFrame(img)
+            frame = img
+            #frame = flipImage(img)
+            if timestamp == 0:
+                # Send the output the error.
+                outputStream.notifyError(cvSink1.getError());
+                # skip the rest of the current iteration
+                continue
+            threshold = threshold_video(frame)
+            #outputStream.putFrame(threshold)
+            processed = findContours(frame, threshold)
+            # (optional) send some image back to the dashboard
+            outputStream.putFrame(processed)
+
+
