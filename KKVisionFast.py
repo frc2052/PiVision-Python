@@ -500,6 +500,7 @@ if __name__ == "__main__":
     # start cameras
     cameras = []
     streams = []
+
     for cameraConfig in cameraConfigs:
         cs, cameraCapture = startCamera(cameraConfig)
         streams.append(cs)
@@ -544,6 +545,7 @@ if __name__ == "__main__":
             #outputStream.putFrame(threshold)
             processed = findContours(frame, threshold)
             # (optional) send some image back to the dashboard
+            outputStream.setSource(cameras[0])
             outputStream.putFrame(processed)
 
 
@@ -563,6 +565,7 @@ if __name__ == "__main__":
             #outputStream.putFrame(threshold)
             processed = findContours(frame, threshold)
             # (optional) send some image back to the dashboard
+            outputStream.setSource(cameras[1])
             outputStream.putFrame(processed)
 
 
