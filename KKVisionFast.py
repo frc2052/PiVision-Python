@@ -18,6 +18,7 @@ import json
 import time
 import sys
 
+
 from cscore import CameraServer, VideoSource
 from networktables import NetworkTablesInstance
 import cv2
@@ -112,14 +113,15 @@ def findContours(frame, mask):
     #draw contours and hull points/
 
     #Creating hull array for convex hull points/
-    hull = []
+    
+    #hull = []
     
 
     #calculate points for each contour
     for i in range(len(contour2)):
 
         #creating convex hull object for each contour
-        hull.append(cv2.convexHull(contour2[i], False))
+        #hull.append(cv2.convexHull(contour2[i], False))
 
         color_contours = (0, 225, 0)#this makes color for contours green/
         color = (225, 0, 0) #makes color for convex hull blue/
@@ -129,7 +131,7 @@ def findContours(frame, mask):
      #   cv2.drawContours(image, hull, i, color, 1, 8)
     
     return image
-
+    
 
 
 # Draws Contours and finds center and yaw of vision targets
@@ -186,7 +188,7 @@ def findTargets(contours, image, centerX, centerY):
                     box = np.int0(box)
                     # Draws rotated rectangle
                     #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
-             #       cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
+                    #cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
 
 
                     # Calculates yaw of contour (horizontal position in degrees)
@@ -500,7 +502,6 @@ if __name__ == "__main__":
     # start cameras
     cameras = []
     streams = []
-
     for cameraConfig in cameraConfigs:
         cs, cameraCapture = startCamera(cameraConfig)
         streams.append(cs)
@@ -512,12 +513,12 @@ if __name__ == "__main__":
     # Get a CvSink. This will capture images from the camera
     cvSink0 = cameraServer0.getVideo()
 
-    if len(streams) > 0:
-        cameraServer1 = streams[1]
-        cvSink1 = cameraServer1.getVideo()
+    cameraServer1 = streams[1]
+    cvSink1 = cameraServer1.getVideo("Back Camera")
 
     # (optional) Setup a CvSource. This will send images back to the Dashboard
     outputStream = cameraServer0.putVideo("stream", image_width, image_height)
+    outputStream2 = cameraServer1.putVideo("stream1", image_width, image_height)
     # Allocating new images is very expensive, always try to preallocate
     img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
 
@@ -545,7 +546,6 @@ if __name__ == "__main__":
             #outputStream.putFrame(threshold)
             processed = findContours(frame, threshold)
             # (optional) send some image back to the dashboard
-            outputStream.setSource(cameras[0])
             outputStream.putFrame(processed)
 
 
@@ -558,14 +558,13 @@ if __name__ == "__main__":
             #frame = flipImage(img)
             if timestamp == 0:
                 # Send the output the error.
-                outputStream.notifyError(cvSink1.getError());
+                outputStream2.notifyError(cvSink1.getError())
                 # skip the rest of the current iteration
                 continue
             threshold = threshold_video(frame)
             #outputStream.putFrame(threshold)
             processed = findContours(frame, threshold)
             # (optional) send some image back to the dashboard
-            outputStream.setSource(cameras[1])
-            outputStream.putFrame(processed)
+            outputStream2.putFrame(processed)
 
 
