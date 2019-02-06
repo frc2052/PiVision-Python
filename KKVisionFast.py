@@ -60,7 +60,7 @@ def flipImage(frame):
 # Takes in a frame, returns a masked frame
 def threshold_video(frame):
     img = frame.copy()
-    blur = cv2.boxBlur(img, 2)
+    #blur = cv2.blur(img, 7)
     #blur = cv2.medianBlur(img, 3)
 
     # Convert BGR to HSV
@@ -541,7 +541,7 @@ if __name__ == "__main__":
             #frame = flipImage(img)
             if timestamp == 0:
                 # Send the output the error.
-                outputStream.notifyError(cvSink0.getError());
+                outputStream.notifyError(cvSink0.getError())
                 # skip the rest of the current iteration
                 continue
             threshold = threshold_video(frame)
