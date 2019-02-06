@@ -60,10 +60,12 @@ def flipImage(frame):
 # Takes in a frame, returns a masked frame
 def threshold_video(frame):
     img = frame.copy()
+    blur = cv2.boxBlur(img, 2)
     #blur = cv2.medianBlur(img, 3)
 
     # Convert BGR to HSV
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    #hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     # define range of green light in HSV
     #lower_color = np.array([0,220,25])
     #upper_color = np.array([101, 255, 255])
@@ -188,7 +190,7 @@ def findTargets(contours, image, centerX, centerY):
                     box = np.int0(box)
                     # Draws rotated rectangle
                     #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
-                    #cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
+                    cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
 
 
                     # Calculates yaw of contour (horizontal position in degrees)
@@ -514,7 +516,7 @@ if __name__ == "__main__":
     cvSink0 = cameraServer0.getVideo()
 
     cameraServer1 = streams[1]
-    cvSink1 = cameraServer1.getVideo("Back Camera")
+    cvSink1 = cameraServer1.getVideo()
 
     # (optional) Setup a CvSource. This will send images back to the Dashboard
     outputStream = cameraServer0.putVideo("stream", image_width, image_height)
