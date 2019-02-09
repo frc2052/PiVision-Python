@@ -108,6 +108,9 @@ class WebcamVideoStream:
         # be stopped
         self.stopped = False
 
+    def setStream(self, cameraName):
+        self.stream = cameraServer.getVideo(name = cameraName)
+
     def start(self):
         # start the thread to read frames from the video stream
         t = Thread(target=self.update, name=self.name, args=())
@@ -173,8 +176,8 @@ green_blur = 7
 orange_blur = 27
 
 # define range of green of retroreflective tape in HSV
-lower_green = np.array([0,220,25])
-upper_green = np.array([101, 255, 255])
+lower_green = np.array([0,0,190])
+upper_green = np.array([180, 50, 255])
 #define range of orange from cargo ball in HSV
 lower_orange = np.array([0,193,92])
 upper_orange = np.array([23, 255, 255])
@@ -681,6 +684,9 @@ if __name__ == "__main__":
     ntinst = NetworkTablesInstance.getDefault()
     #Name of network table - this is how it communicates with robot. IMPORTANT
     networkTable = NetworkTables.getTable('ChickenVision')
+    shuffleBoard = NetworkTables.getTable('SmartDashboard')
+
+    networkTable.putBoolean("Camera Toggle", True)
 
     if server:
         print("Setting up NetworkTables server")
@@ -733,7 +739,7 @@ if __name__ == "__main__":
             processed = frame
         else:
             # Checks if you just want camera for Tape processing , False by default
-            if(networkTable.getBoolean("Tape", False)):
+            if(networkTable.getBoolean("Tape", True)):
                 #Lowers exposure to 0
                 cap.autoExpose = False
                 boxBlur = blurImg(frame, green_blur)
@@ -745,6 +751,12 @@ if __name__ == "__main__":
                 boxBlur = blurImg(frame, orange_blur)
                 threshold = threshold_video(lower_orange, upper_orange, boxBlur)
                 processed = findCargo(frame, threshold)
+
+        if(networkTable.getBoolean("Camera Toggle", True)):
+            cap.setStream("Front")
+        else:
+            cap.setStream("Back")
+
         #Puts timestamp of camera on netowrk tables
         networkTable.putNumber("VideoTimestamp", timestamp)
         streamViewer.frame = processed

@@ -514,13 +514,15 @@ if __name__ == "__main__":
     
     # Get a CvSink. This will capture images from the camera
     cvSink0 = cameraServer0.getVideo()
-
-    cameraServer1 = streams[1]
-    cvSink1 = cameraServer1.getVideo()
-
-    # (optional) Setup a CvSource. This will send images back to the Dashboard
     outputStream = cameraServer0.putVideo("stream", image_width, image_height)
-    outputStream2 = cameraServer1.putVideo("stream1", image_width, image_height)
+
+
+    if len(streams)>1:
+        cameraServer1 = streams[1]
+        cvSink1 = cameraServer1.getVideo()
+        outputStream2 = cameraServer1.putVideo("stream1", image_width, image_height)
+
+    
     # Allocating new images is very expensive, always try to preallocate
     img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
 
