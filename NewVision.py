@@ -282,35 +282,35 @@ def findBall(contours, image, centerX, centerY):
 
                     ##### DRAWS CONTOUR######
                     # Gets rotated bounding rectangle of contour
-                    rect = cv2.minAreaRect(cnt)
+                    #rect = cv2.minAreaRect(cnt)
                     # Creates box around that rectangle
-                    box = cv2.boxPoints(rect)
+                    #box = cv2.boxPoints(rect)
                     # Not exactly sure
-                    box = np.int0(box)
+                    #box = np.int0(box)
                     # Draws rotated rectangle
-                    cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                    #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
 
                     # Draws a vertical white line passing through center of contour
-                    cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
+                    #cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
                     # Draws a white circle at center of contour
-                    cv2.circle(image, (cx, cy), 6, (255, 255, 255))
+                    #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
 
                     # Draws the contours
-                    cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
+                    #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
 
                     # Gets the (x, y) and radius of the enclosing circle of contour
-                    (x, y), radius = cv2.minEnclosingCircle(cnt)
+                    #(x, y), radius = cv2.minEnclosingCircle(cnt)
                     # Rounds center of enclosing circle
-                    center = (int(x), int(y))
+                    #center = (int(x), int(y))
                     # Rounds radius of enclosning circle
-                    radius = int(radius)
+                    #radius = int(radius)
                     # Makes bounding rectangle of contour
-                    rx, ry, rw, rh = cv2.boundingRect(cnt)
+                    #rx, ry, rw, rh = cv2.boundingRect(cnt)
 
                     # Draws countour of bounding rectangle and enclosing circle in green
-                    cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
+                    #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
 
-                    cv2.circle(image, center, radius, (23, 184, 80), 1)
+                    #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
                     # Appends important info to array
                     if [cx, cy, cnt] not in biggestCargo:
@@ -331,9 +331,9 @@ def findBall(contours, image, centerX, centerY):
             print("Yaw: " + str(finalTarget))
             # Puts the yaw on screen
             # Draws yaw of target + line where center of target is
-            cv2.putText(image, "Yaw: " + str(finalTarget), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
-                        (255, 255, 255))
-            cv2.line(image, (xCoord, screenHeight), (xCoord, 0), (255, 0, 0), 2)
+            #cv2.putText(image, "Yaw: " + str(finalTarget), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
+                        #(255, 255, 255))
+            #cv2.line(image, (xCoord, screenHeight), (xCoord, 0), (255, 0, 0), 2)
 
             currentAngleError = finalTarget
             #pushes cargo angle to network tables
@@ -389,13 +389,13 @@ def findTape(contours, image, centerX, centerY):
 
                     ##### DRAWS CONTOUR######
                     # Gets rotated bounding rectangle of contour
-                    rect = cv2.minAreaRect(cnt)
+                    #rect = cv2.minAreaRect(cnt)
                     # Creates box around that rectangle
-                    box = cv2.boxPoints(rect)
+                    #box = cv2.boxPoints(rect)
                     # Not exactly sure
-                    box = np.int0(box)
+                    #box = np.int0(box)
                     # Draws rotated rectangle
-                    cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                    #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
 
 
                     # Calculates yaw of contour (horizontal position in degrees)
@@ -405,12 +405,12 @@ def findTape(contours, image, centerX, centerY):
 
 
                     # Draws a vertical white line passing through center of contour
-                    cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
+                    #cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
                     # Draws a white circle at center of contour
-                    cv2.circle(image, (cx, cy), 6, (255, 255, 255))
+                    #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
 
                     # Draws the contours
-                    cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
+                    #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
 
                     # Gets the (x, y) and radius of the enclosing circle of contour
                     (x, y), radius = cv2.minEnclosingCircle(cnt)
@@ -422,9 +422,9 @@ def findTape(contours, image, centerX, centerY):
                     rx, ry, rw, rh = cv2.boundingRect(cnt)
                     boundingRect = cv2.boundingRect(cnt)
                     # Draws countour of bounding rectangle and enclosing circle in green
-                    cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
+                    #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
 
-                    cv2.circle(image, center, radius, (23, 184, 80), 1)
+                    #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
                     # Appends important info to array
                     if [cx, cy, rotation, cnt] not in biggestCnts:
@@ -473,9 +473,9 @@ def findTape(contours, image, centerX, centerY):
         finalTarget = min(targets, key=lambda x: math.fabs(x[1]))
         # Puts the yaw on screen
         #Draws yaw of target + line where center of target is
-        cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
-                    (255, 255, 255))
-        cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
+        #cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
+                    #(255, 255, 255))
+        #cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
 
         currentAngleError = finalTarget[1]
         # pushes vision target angle to network tables
@@ -484,7 +484,7 @@ def findTape(contours, image, centerX, centerY):
         # pushes that it deosn't see vision target to network tables
         networkTable.putBoolean("tapeDetected", False)
 
-    cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
+    #cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
 
     return image
 
@@ -560,7 +560,7 @@ def getEllipseRotation(image, cnt):
         # Maps rotation to (-90 to 90). Makes it easier to tell direction of slant
         rotation = translateRotation(rotation, widthE, heightE)
 
-        cv2.ellipse(image, ellipse, (23, 184, 80), 3)
+        #cv2.ellipse(image, ellipse, (23, 184, 80), 3)
         return rotation
     except:
         # Gets rotated bounding rectangle of contour
