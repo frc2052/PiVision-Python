@@ -686,8 +686,6 @@ if __name__ == "__main__":
     networkTable = NetworkTables.getTable('ChickenVision')
     shuffleBoard = NetworkTables.getTable('SmartDashboard')
 
-    networkTable.putBoolean("Camera Toggle", True)
-
     if server:
         print("Setting up NetworkTables server")
         ntinst.startServer()
@@ -752,7 +750,7 @@ if __name__ == "__main__":
                 threshold = threshold_video(lower_orange, upper_orange, boxBlur)
                 processed = findCargo(frame, threshold)
 
-        if(networkTable.getBoolean("Camera Toggle", True)):
+        if(shuffleBoard.getBoolean("Camera Toggle", True)):
             cap.setStream("Front")
         else:
             cap.setStream("Back")
