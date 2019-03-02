@@ -357,6 +357,7 @@ def findTape(contours, image, centerX, centerY):
         #Sort contours by area size (biggest to smallest)
         cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
 
+        matches = []
         biggestCnts = []
         for cnt in cntsSorted:
             # Get moments of contour; mainly for centroid
@@ -425,8 +426,10 @@ def findTape(contours, image, centerX, centerY):
                     #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
                     # Appends important info to array
-                    if [cx, cy, rotation, cnt, rh] not in biggestCnts:
-                         biggestCnts.append([cx, cy, rotation, cnt, rh])
+                    #if [cx, cy, rotation, cnt, rh] not in biggestCnts:
+                    if [cx, cy] not in matches
+                        matches.append([cx, cy])
+                        biggestCnts.append([cx, cy, rotation, cnt, rh])
 
 
         # Sorts array based on coordinates (leftmost to rightmost) to make sure contours are adjacent
@@ -756,10 +759,14 @@ if __name__ == "__main__":
                 threshold = threshold_video(lower_orange, upper_orange, boxBlur)
                 processed = findCargo(frame, threshold)
 
-        if(shuffleBoard.getBoolean("Camera Toggle", True)):
-            cap.setStream("Front")
-        else:
-            cap.setStream("Back")
+        
+        try:
+            if(shuffleBoard.getBoolean("Camera Toggle", True)):
+                cap.setStream("Front")
+            else:
+                cap.setStream("Back")
+        except:
+            print("Failed to set camera stream to front/back")
 
         #Puts timestamp of camera on netowrk tables
         networkTable.putNumber("VideoTimestamp", timestamp)
