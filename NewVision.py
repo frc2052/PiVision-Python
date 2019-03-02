@@ -176,8 +176,8 @@ green_blur = 7
 orange_blur = 27
 
 # define range of green of retroreflective tape in HSV
-lower_green = np.array([40,40,150])
-upper_green = np.array([100, 140, 255])
+lower_green = np.array([42,0,220])
+upper_green = np.array([95, 96, 255])
 #define range of orange from cargo ball in HSV
 lower_orange = np.array([0,193,92])
 upper_orange = np.array([23, 255, 255])
@@ -377,7 +377,7 @@ def findTape(contours, image, centerX, centerY):
                     cy = int(M["m01"] / M["m00"])
                 else:
                     cx, cy = 0, 0
-                if(len(biggestCnts) < 13):
+                if(len(biggestCnts) < 13 and (cy < image_height - (image_height*.3))):
                     #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
                     rotation = getEllipseRotation(image, cnt)
 
@@ -421,13 +421,14 @@ def findTape(contours, image, centerX, centerY):
                     rx, ry, rw, rh = cv2.boundingRect(cnt)
                     boundingRect = cv2.boundingRect(cnt)
                     # Draws countour of bounding rectangle and enclosing circle in green
-                    #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
+                    if (shuffleBoard.getBoolean("CameraDebug", False)):
+                        cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
 
                     #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
                     # Appends important info to array
                     #if [cx, cy, rotation, cnt, rh] not in biggestCnts:
-                    if [cx, cy] not in matches
+                    if [cx, cy] not in matches:
                         matches.append([cx, cy])
                         biggestCnts.append([cx, cy, rotation, cnt, rh])
 
@@ -472,7 +473,7 @@ def findTape(contours, image, centerX, centerY):
     #Check if there are targets seen
     if (len(targets) > 0):
         # pushes that it sees vision target to network tables
-        networkTable.putBoolean("tapeDetected", True)
+        shuffleBoard.putBoolean("tapeDetected", True)
         #Sorts targets based on x coords to break any angle tie
         targets.sort(key=lambda x: math.fabs(x[0]))
         finalTarget = min(targets, key=lambda x: math.fabs(x[1]))
@@ -490,7 +491,7 @@ def findTape(contours, image, centerX, centerY):
         shuffleBoard.putNumber("targetY", finalTarget[2])
     else:
         # pushes that it deosn't see vision target to network tables
-        networkTable.putBoolean("tapeDetected", False)
+        shuffleBoard.putBoolean("tapeDetected", False)
         shuffleBoard.putNumber("targetX", -1)
 
     #cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
@@ -569,7 +570,8 @@ def getEllipseRotation(image, cnt):
         # Maps rotation to (-90 to 90). Makes it easier to tell direction of slant
         rotation = translateRotation(rotation, widthE, heightE)
 
-        #cv2.ellipse(image, ellipse, (23, 184, 80), 3)
+        if (shuffleBoard.getBoolean("CameraDebug", False)):
+            cv2.ellipse(image, ellipse, (23, 184, 80), 3)
         return rotation
     except:
         # Gets rotated bounding rectangle of contour
