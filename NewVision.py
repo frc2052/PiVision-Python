@@ -278,8 +278,6 @@ def findBall(contours, image, centerX, centerY):
                 else:
                     cx, cy = 0, 0
                 if(len(biggestCargo) < 3):
-
-
                     ##### DRAWS CONTOUR######
                     # Gets rotated bounding rectangle of contour
                     #rect = cv2.minAreaRect(cnt)
@@ -403,11 +401,11 @@ def findTape(contours, image, centerX, centerY):
                     # Calculates yaw of contour (horizontal position in degrees)
                     pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
 
-
-                    # Draws a vertical white line passing through center of contour
-                    cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
-                    # Draws a white circle at center of contour
-                    #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
+                    
+                        # Draws a vertical white line passing through center of contour
+                        #cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
+                        # Draws a white circle at center of contour
+                        #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
 
                     # Draws the contours
                     #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
@@ -427,8 +425,8 @@ def findTape(contours, image, centerX, centerY):
                     #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
                     # Appends important info to array
-                    if [cx, cy, rotation, cnt] not in biggestCnts:
-                         biggestCnts.append([cx, cy, rotation, cnt])
+                    if [cx, cy, rotation, cnt, rh] not in biggestCnts:
+                         biggestCnts.append([cx, cy, rotation, cnt, rh])
 
 
         # Sorts array based on coordinates (leftmost to rightmost) to make sure contours are adjacent
@@ -445,9 +443,13 @@ def findTape(contours, image, centerX, centerY):
 
             cy1 = biggestCnts[i][1]
             cy2 = biggestCnts[i + 1][1]
+
+            rh1 = biggestCnts[i][4]
+            rh2 = biggestCnts[i + 1][4]
             # If contour angles are opposite
             if (np.sign(tilt1) != np.sign(tilt2)):
                 centerOfTarget = math.floor((cx1 + cx2) / 2)
+                avgHeight = (rh1+rh2)/2
                 #ellipse negative tilt means rotated to right
                 #Note: if using rotated rect (min area rectangle)
                 #      negative tilt means rotated to left
@@ -462,8 +464,8 @@ def findTape(contours, image, centerX, centerY):
                 #Angle from center of camera to target (what you should pass into gyro)
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
                 #Make sure no duplicates, then append
-                if [centerOfTarget, yawToTarget] not in targets:
-                    targets.append([centerOfTarget, yawToTarget])
+                if [centerOfTarget, yawToTarget, avgHeight] not in targets:
+                    targets.append([centerOfTarget, yawToTarget, avgHeight])
     #Check if there are targets seen
     if (len(targets) > 0):
         # pushes that it sees vision target to network tables
@@ -475,12 +477,14 @@ def findTape(contours, image, centerX, centerY):
         #Draws yaw of target + line where center of target is
         #cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
                     #(255, 255, 255))
-        #cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
+        if (shuffleBoard.getBoolean("CameraDebug", False)):
+            cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
 
         currentAngleError = finalTarget[1]
         # pushes vision target angle to network tables
         networkTable.putNumber("tapeYaw", currentAngleError)
         shuffleBoard.putNumber("targetX", finalTarget[0])
+        shuffleBoard.putNumber("targetY", finalTarget[2])
     else:
         # pushes that it deosn't see vision target to network tables
         networkTable.putBoolean("tapeDetected", False)
