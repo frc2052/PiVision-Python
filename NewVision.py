@@ -356,10 +356,12 @@ def findTape(contours, image, centerX, centerY):
     if len(contours) >= 2:
         #Sort contours by area size (biggest to smallest)
         cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
-
+        maxHeight = 0
+        
         matches = []
         biggestCnts = []
         for cnt in cntsSorted:
+            
             # Get moments of contour; mainly for centroid
             M = cv2.moments(cnt)
             # Get convex hull (bounding polygon on contour)
@@ -375,11 +377,15 @@ def findTape(contours, image, centerX, centerY):
                 if M["m00"] != 0:
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
+                    if(maxHeight == 0):
+                        maxHeight = cy
                 else:
                     cx, cy = 0, 0
-                if(len(biggestCnts) < 13 and (cy < image_height - (image_height*.3))):
+                #only bother to process the target if it is close to the same height as the biggest blob
+                if(len(biggestCnts) < 13 and (cy < image_height - (image_height*.3)) and cy >= (maxHeight * .9)):
                     #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
                     rotation = getEllipseRotation(image, cnt)
+                    print("Max: " + str(maxHeight) + " cy: " + str(cy) + " " + " cx: "  + str(cx) + str(cy > (maxHeight * .9)))
 
                     # Calculates yaw of contour (horizontal position in degrees)
                     yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
