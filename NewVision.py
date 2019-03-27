@@ -177,8 +177,8 @@ verticalView = math.atan(math.tan(diagonalView/2) * (verticalAspect / diagonalAs
 H_FOCAL_LENGTH = image_width / (2*math.tan((horizontalView/2)))
 V_FOCAL_LENGTH = image_height / (2*math.tan((verticalView/2)))
 #blurs have to be odd
-#blur was 7
-green_blur = 1
+front_green_blur = 1
+back_green_blur = 7
 orange_blur = 27
 
 # define range of green of retroreflective tape in HSV
@@ -186,9 +186,6 @@ back_lower_green = np.array([42,0,237])
 back_upper_green = np.array([95, 24, 255])
 front_lower_green = np.array([60,92,125])
 front_upper_green = np.array([122, 255, 255])
-#define range of orange from cargo ball in HSV
-lower_orange = np.array([0,193,92])
-upper_orange = np.array([23, 255, 255])
 
 #Flip image if camera mounted upside down
 def flipImage(frame):
@@ -235,124 +232,6 @@ def findTargets(frame, mask):
     # Shows the contours overlayed on the original video
     return image
 
-# Finds the balls from the masked image and displays them on original stream + network tables
-def findCargo(frame, mask):
-    # Finds contours
-    _, contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_KCOS)
-    # Take each frame
-    # Gets the shape of video
-    screenHeight, screenWidth, _ = frame.shape
-    # Gets center of height and width
-    centerX = (screenWidth / 2) - .5
-    centerY = (screenHeight / 2) - .5
-    # Copies frame and stores it in image
-    image = frame.copy()
-    # Processes the contours, takes in (contours, output_image, (centerOfImage)
-    if len(contours) != 0:
-        image = findBall(contours, image, centerX, centerY)
-    # Shows the contours overlayed on the original video
-    return image
-
-
-# Draws Contours and finds center and yaw of orange ball
-# centerX is center x coordinate of image
-# centerY is center y coordinate of image
-def findBall(contours, image, centerX, centerY):
-    screenHeight, screenWidth, channels = image.shape;
-    #Seen vision targets (correct angle, adjacent to each other)
-    cargo = []
-
-    if len(contours) > 0:
-        #Sort contours by area size (biggest to smallest)
-        cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
-
-        biggestCargo = []
-        for cnt in cntsSorted:
-            x, y, w, h = cv2.boundingRect(cnt)
-            aspect_ratio = float(w) / h
-            # Get moments of contour; mainly for centroid
-            M = cv2.moments(cnt)
-            # Get convex hull (bounding polygon on contour)
-            hull = cv2.convexHull(cnt)
-            # Calculate Contour area
-            cntArea = cv2.contourArea(cnt)
-            # Filters contours based off of size
-            if (checkBall(cntArea, aspect_ratio)):
-                ### MOSTLY DRAWING CODE, BUT CALCULATES IMPORTANT INFO ###
-                # Gets the centeroids of contour
-                if M["m00"] != 0:
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
-                else:
-                    cx, cy = 0, 0
-                if(len(biggestCargo) < 3):
-                    ##### DRAWS CONTOUR######
-                    # Gets rotated bounding rectangle of contour
-                    #rect = cv2.minAreaRect(cnt)
-                    # Creates box around that rectangle
-                    #box = cv2.boxPoints(rect)
-                    # Not exactly sure
-                    #box = np.int0(box)
-                    # Draws rotated rectangle
-                    #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
-
-                    # Draws a vertical white line passing through center of contour
-                    #cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
-                    # Draws a white circle at center of contour
-                    #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
-
-                    # Draws the contours
-                    #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
-
-                    # Gets the (x, y) and radius of the enclosing circle of contour
-                    #(x, y), radius = cv2.minEnclosingCircle(cnt)
-                    # Rounds center of enclosing circle
-                    #center = (int(x), int(y))
-                    # Rounds radius of enclosning circle
-                    #radius = int(radius)
-                    # Makes bounding rectangle of contour
-                    #rx, ry, rw, rh = cv2.boundingRect(cnt)
-
-                    # Draws countour of bounding rectangle and enclosing circle in green
-                    #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
-
-                    #cv2.circle(image, center, radius, (23, 184, 80), 1)
-
-                    # Appends important info to array
-                    if [cx, cy, cnt] not in biggestCargo:
-                         biggestCargo.append([cx, cy, cnt])
-
-
-
-        # Check if there are cargo seen
-        if (len(biggestCargo) > 0):
-            #pushes that it sees cargo to network tables
-            networkTable.putBoolean("cargoDetected", True)
-
-            # Sorts targets based on x coords to break any angle tie
-            biggestCargo.sort(key=lambda x: math.fabs(x[0]))
-            closestCargo = min(biggestCargo, key=lambda x: (math.fabs(x[0] - centerX)))
-            xCoord = closestCargo[0]
-            finalTarget = calculateYaw(xCoord, centerX, H_FOCAL_LENGTH)
-            print("Yaw: " + str(finalTarget))
-            # Puts the yaw on screen
-            # Draws yaw of target + line where center of target is
-            #cv2.putText(image, "Yaw: " + str(finalTarget), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
-                        #(255, 255, 255))
-            #cv2.line(image, (xCoord, screenHeight), (xCoord, 0), (255, 0, 0), 2)
-
-            currentAngleError = finalTarget
-            #pushes cargo angle to network tables
-            networkTable.putNumber("cargoYaw", currentAngleError)
-
-        else:
-            #pushes that it doesn't see cargo to network tables
-            networkTable.putBoolean("cargoDetected", False)
-
-        cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
-
-        return image
-
 def getTapeHeight(contour):
     x,y,w,h = cv2.boundingRect(contour)
     return h
@@ -366,98 +245,86 @@ def findTape(contours, image, centerX, centerY):
     targets = []
 
     if len(contours) >= 2:
-        #Sort contours by area size (biggest to smallest)
-        #cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
+        #Sort contours by height (biggest to smallest)
         cntsSorted = sorted(contours, key=lambda x: getTapeHeight(x), reverse=True)
         maxHeight = 0
         
         matches = []
         biggestCnts = []
+        bottomOfScreenY = image_height - (image_height*.3) #only bother to process the target if it is in the top 70%
         #print("NEW LOOP")
-        for cnt in cntsSorted:
-            
+        for cnt in cntsSorted:  
+            if len(biggestCnts) >= 4:
+                #we have the 4 tallest contours, stop looping
+                break
+
             # Get moments of contour; mainly for centroid
             M = cv2.moments(cnt)
-            # Get convex hull (bounding polygon on contour)
-            hull = cv2.convexHull(cnt)
-            # Calculate Contour area
-            cntArea = cv2.contourArea(cnt)
-            # calculate area of convex hull
-            hullArea = cv2.contourArea(hull)
-            # Filters contours based off of size
-            #if (checkContours(cntArea, hullArea)):
-            if (True):
-                ### MOSTLY DRAWING CODE, BUT CALCULATES IMPORTANT INFO ###
-                # Gets the centeroids of contour
-                if M["m00"] != 0:
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
+            # Gets the centeroids of contour
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                cx, cy = 0, 0
+                #skip this loop
+                continue
 
-                    boxX, boxY, boxW, boxH = cv2.boundingRect(cnt)
-                    #print ("X=" + str(boxX) + "  Y=" + str(boxY) + "  W=" + str(boxW) + "  H=" + str(boxH))
+            #get the left, top, width, and height of the contour
+            boxX, boxY, boxW, boxH = cv2.boundingRect(cnt)
+            #only bother to process the target if is is above the bottom of the screen and it is close to the same height as the biggest blob
+            if((cy < bottomOfScreenY) and boxH >= (maxHeight * .9)):
+                #print ("X=" + str(boxX) + "  Y=" + str(boxY) + "  W=" + str(boxW) + "  H=" + str(boxH))
 
-                    if(maxHeight == 0):
-                        maxHeight = boxH
-                else:
-                    cx, cy = 0, 0
-                    #skip this loop
-                    continue
-                #only bother to process the target if it is in the top 70% of the screen and it is close to the same height as the biggest blob
-                if(len(biggestCnts) < 13 and (cy < image_height - (image_height*.3)) and boxH >= (maxHeight * .9)):
-                    #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
-                    rotation = getEllipseRotation(image, cnt)
-                    print("Max: " + str(maxHeight) + " cy: " + str(cy) + " " + " cx: "  + str(cx) + str(cy > (maxHeight * .9)))
+                if(maxHeight == 0):
+                    maxHeight = boxH #will be set on first loop, first item in array will be tallest
 
-                    # Calculates yaw of contour (horizontal position in degrees)
-                    #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
-                    # Calculates yaw of contour (horizontal position in degrees)
-                    #pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                #draw a box around this contour if dubugging
+                if (shuffleBoard.getBoolean("CameraDebug", False)):
+                    cv2.rectangle(image, (boxX, boxY), (boxX + boxW, boxY + boxH), (23, 184, 80), 1)
 
-                    ##### DRAWS CONTOUR######
-                    # Gets rotated bounding rectangle of contour
-                    #rect = cv2.minAreaRect(cnt)
-                    # Creates box around that rectangle
-                    #box = cv2.boxPoints(rect)
-                    # Not exactly sure
-                    #box = np.int0(box)
-                    # Draws rotated rectangle
-                    #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE, DRAWS ELLIPSE IF IN DEBUG MODE ##########
+                rotation = getEllipseRotation(image, cnt)
+
+                if [cx, cy] not in matches:
+                    matches.append([cx, cy])
+                    biggestCnts.append([cx, cy, rotation, cnt, boxH])
+
+                ##### DRAW DEBUG CONTOUR######
+                # Gets rotated bounding rectangle of contour
+                #rect = cv2.minAreaRect(cnt)
+                # Creates box around that rectangle
+                #box = cv2.boxPoints(rect)
+                # Not exactly sure
+                #box = np.int0(box)
+                # Draws rotated rectangle
+                #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
 
 
-                    # Calculates yaw of contour (horizontal position in degrees)
-                    yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
-                    # Calculates yaw of contour (horizontal position in degrees)
-                    pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                # Calculates yaw of contour (horizontal position in degrees)
+                #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
+                # Calculates yaw of contour (horizontal position in degrees)
+                #pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                
+                # Draws a vertical white line passing through center of contour
+                #cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
+                # Draws a white circle at center of contour
+                #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
 
-                    
-                        # Draws a vertical white line passing through center of contour
-                        #cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
-                        # Draws a white circle at center of contour
-                        #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
+                # Draws the contours
+                #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
 
-                    # Draws the contours
-                    #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
+                # Gets the (x, y) and radius of the enclosing circle of contour
+                #(x, y), radius = cv2.minEnclosingCircle(cnt)
+                # Rounds center of enclosing circle
+                #center = (int(x), int(y))
+                # Rounds radius of enclosning circle
+                #radius = int(radius)
+                #boundingRect = cv2.boundingRect(cnt)
 
-                    # Gets the (x, y) and radius of the enclosing circle of contour
-                    (x, y), radius = cv2.minEnclosingCircle(cnt)
-                    # Rounds center of enclosing circle
-                    center = (int(x), int(y))
-                    # Rounds radius of enclosning circle
-                    radius = int(radius)
-                    # Makes bounding rectangle of contour
-                    rx, ry, rw, rh = cv2.boundingRect(cnt)
-                    boundingRect = cv2.boundingRect(cnt)
-                    # Draws countour of bounding rectangle and enclosing circle in green
-                    if (shuffleBoard.getBoolean("CameraDebug", False)):
-                        cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
+                #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
-                    #cv2.circle(image, center, radius, (23, 184, 80), 1)
-
-                    # Appends important info to array
-                    #if [cx, cy, rotation, cnt, rh] not in biggestCnts:
-                    if [cx, cy] not in matches:
-                        matches.append([cx, cy])
-                        biggestCnts.append([cx, cy, rotation, cnt, rh])
+                # Appends important info to array
+                #if [cx, cy, rotation, cnt, rh] not in biggestCnts:
 
 
         # Sorts array based on coordinates (leftmost to rightmost) to make sure contours are adjacent
@@ -497,6 +364,7 @@ def findTape(contours, image, centerX, centerY):
                 #Make sure no duplicates, then append
                 if [centerOfTarget, yawToTarget, avgHeight] not in targets:
                     targets.append([centerOfTarget, yawToTarget, avgHeight])
+    
     #Check if there are targets seen
     if (len(targets) > 0):
         # pushes that it sees vision target to network tables
@@ -525,14 +393,6 @@ def findTape(contours, image, centerX, centerY):
 
     return image
 
-
-# Checks if tape contours are worthy based off of contour area and (not currently) hull area
-def checkContours(cntSize, hullSize):
-    return cntSize > (image_width / 6)
-
-# Checks if ball contours are worthy based off of contour area and (not currently) hull area
-def checkBall(cntSize, cntAspectRatio):
-    return (cntSize > (image_width / 2)) and (round(cntAspectRatio) == 1)
 
 #Forgot how exactly it works, but it works!
 def translateRotation(rotation, width, height):
@@ -603,10 +463,6 @@ def getEllipseRotation(image, cnt):
     except:
         # Gets rotated bounding rectangle of contour
         rect = cv2.minAreaRect(cnt)
-        # Creates box around that rectangle
-        box = cv2.boxPoints(rect)
-        # Not exactly sure
-        box = np.int0(box)
         # Gets center of rotated rectangle
         center = rect[0]
         # Gets rotation of rectangle; same as rotation of contour
@@ -748,64 +604,74 @@ if __name__ == "__main__":
     webcam = cameras[0]
     cameraServer = streams[0]
     #Start thread reading camera
-    driverStationCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height).start()
-    visionCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height).start()
+    driverStationCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "DriverStation").start()
+    visionCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "VisionProcessing").start()
     driverStationCap.setStream("Driver")
+    driverStationCap.autoExpose = True
     visionCap.setStream("Front")
-    visionCap.autoExpose = False                
     
     # (optional) Setup a CvSource. This will send images back to the Dashboard
     # Allocating new images is very expensive, always try to preallocate
     img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
     #Start thread outputing stream
     streamViewer = VideoShow(image_width,image_height, cameraServer, frame=img).start()
-    #cap.autoExpose=True;
-    tape = False
     fps = FPS().start()
     #TOTAL_FRAMES = 200;
     # loop forever
     while True:
-        #get image for driver station
-        dsTimestamp, dsImg = driverStationCap.read()
-        
         # Tell the CvSink to grab a frame from the camera and put it
         # in the source image.  If there is an error notify the output.
-        timestamp, img = visionCap.read()
-        #Uncomment if camera is mounted upside down
-        #frame = flipImage(img)
-        #Comment out if camera is mounted upside down
-        frame = img
-        if timestamp == 0:
-            # Send the output the error.
-            streamViewer.notifyError(visionCap.getError());
-            # skip the rest of the current iteration
-            continue
-        #Checks if you just want camera for driver (No processing), False by default
-        #if(networkTable.getBoolean("Driver", False)):
-        #    print("Driver")
-        #    cap.autoExpose = True
-        #    processed = frame
-        #else:
-        #    # Checks if you just want camera for Tape processing , False by default
-        #    if(networkTable.getBoolean("Tape", True)):
-        #        print("Tape")
-        #Lowers exposure to 0 if false
-        #visioncap.autoExpose = False                
-        boxBlur = blurImg(frame, green_blur)
-        if(shuffleBoard.getBoolean("Camera Toggle", True)):
-            threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
-        else:
-            threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
-        processed = findTargets(frame, threshold)
-        #    else:
-        #        print("Ball")
-        #        # Checks if you just want camera for Cargo processing, by dent of everything else being false, true by default
-        #        cap.autoExpose = True
-        #        boxBlur = blurImg(frame, orange_blur)
-        #        threshold = threshold_video(lower_orange, upper_orange, boxBlur)
-        #        processed = findCargo(frame, threshold)
+        #get image for driver camera - this will be front or back depending on which driver selected
+        dsTimestamp, dsImg = driverStationCap.read()        
+        vTimestamp, vImg = visionCap.read()        
+        #use "flipImage(img)" if the camera is upside down
 
-        
+        isProcessingFrontVision = shuffleBoard.getBoolean("Camera Toggle", True)
+        isDebuggingVision = shuffleBoard.getBoolean("CameraDebug", False)
+
+        if isProcessingFrontVision:
+            #do vision proccessing
+            if vTimestamp == 0: #failed to capture image
+                if isDebuggingVision:
+                    streamViewer.notifyError(visionCap.getError())
+            else:
+                boxBlur = blurImg(vImg, front_green_blur)
+                threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
+                processed = findTargets(vImg, threshold)
+            
+            #send image back
+            if isDebuggingVision:
+                networkTable.putNumber("VideoTimestamp", vTimestamp)
+                streamViewer.frame = processed #send back processed image
+            else:
+                if dsTimestamp == 0: #failed to capture image
+                    streamViewer.notifyError(driverStationCap.getError())
+                else:   
+                    networkTable.putNumber("VideoTimestamp", dsTimestamp)                 
+                    streamViewer.frame = dsImg #send back driver image
+        else: #back vision tracking
+            #do vision proccessing
+            if dsTimestamp == 0: #failed to capture image
+                streamViewer.notifyError(driverStationCap.getError())
+            else:
+                boxBlur = blurImg(dsImg, back_green_blur)
+                threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
+                processed = findTargets(dsImg, threshold)
+
+                #send image back
+                if isDebuggingVision:
+                    networkTable.putNumber("VideoTimestamp", vTimestamp)
+                    streamViewer.frame = processed #send back processed image
+                else:
+                    networkTable.putNumber("VideoTimestamp", dsTimestamp)
+                    streamViewer.frame = dsImg #send back driver image
+
+        # update the FPS counter
+        fps.update()
+        #Flushes camera values to reduce latency
+        ntinst.flush()
+
+        #set the front/back camera the driver has selected - will be used in next loop
         try:
             if(shuffleBoard.getBoolean("Camera Toggle", True)):
                 driverStationCap.setStream("Driver")
@@ -814,16 +680,6 @@ if __name__ == "__main__":
         except:
             print("Failed to set camera stream to front/back")
 
-        #Puts timestamp of camera on netowrk tables
-        networkTable.putNumber("VideoTimestamp", dsTimestamp)
-        if (shuffleBoard.getBoolean("CameraDebug", False)):
-            streamViewer.frame = processed
-        else:
-            streamViewer.frame = dsImg
-        # update the FPS counter
-        fps.update()
-        #Flushes camera values to reduce latency
-        ntinst.flush()
     #Doesn't do anything at the moment. You can easily get this working by indenting these three lines
     # and setting while loop to: while fps._numFrames < TOTAL_FRAMES
     fps.stop()
