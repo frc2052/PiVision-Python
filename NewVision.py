@@ -406,7 +406,7 @@ def findTape(contours, image, centerX, centerY):
                 if(len(biggestCnts) < 13 and (cy < image_height - (image_height*.3)) and boxH >= (maxHeight * .9)):
                     #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
                     rotation = getEllipseRotation(image, cnt)
-                    #print("Max: " + str(maxHeight) + " cy: " + str(cy) + " " + " cx: "  + str(cx) + str(cy > (maxHeight * .9)))
+                    print("Max: " + str(maxHeight) + " cy: " + str(cy) + " " + " cx: "  + str(cx) + str(cy > (maxHeight * .9)))
 
                     # Calculates yaw of contour (horizontal position in degrees)
                     #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
@@ -748,8 +748,12 @@ if __name__ == "__main__":
     webcam = cameras[0]
     cameraServer = streams[0]
     #Start thread reading camera
-    cap = WebcamVideoStream(webcam, cameraServer, image_width, image_height).start()
-
+    driverStationCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height).start()
+    visionCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height).start()
+    driverStationCap.setStream("Driver")
+    visionCap.setStream("Front")
+    visionCap.autoExpose = False                
+    
     # (optional) Setup a CvSource. This will send images back to the Dashboard
     # Allocating new images is very expensive, always try to preallocate
     img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
@@ -761,55 +765,61 @@ if __name__ == "__main__":
     #TOTAL_FRAMES = 200;
     # loop forever
     while True:
+        #get image for driver station
+        dsTimestamp, dsImg = driverStationCap.read()
+        
         # Tell the CvSink to grab a frame from the camera and put it
         # in the source image.  If there is an error notify the output.
-        timestamp, img = cap.read()
+        timestamp, img = visionCap.read()
         #Uncomment if camera is mounted upside down
         #frame = flipImage(img)
         #Comment out if camera is mounted upside down
         frame = img
         if timestamp == 0:
             # Send the output the error.
-            streamViewer.notifyError(cap.getError());
+            streamViewer.notifyError(visionCap.getError());
             # skip the rest of the current iteration
             continue
         #Checks if you just want camera for driver (No processing), False by default
-        if(networkTable.getBoolean("Driver", False)):
-            print("Driver")
-            cap.autoExpose = True
-            processed = frame
+        #if(networkTable.getBoolean("Driver", False)):
+        #    print("Driver")
+        #    cap.autoExpose = True
+        #    processed = frame
+        #else:
+        #    # Checks if you just want camera for Tape processing , False by default
+        #    if(networkTable.getBoolean("Tape", True)):
+        #        print("Tape")
+        #Lowers exposure to 0 if false
+        #visioncap.autoExpose = False                
+        boxBlur = blurImg(frame, green_blur)
+        if(shuffleBoard.getBoolean("Camera Toggle", True)):
+            threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
         else:
-            # Checks if you just want camera for Tape processing , False by default
-            if(networkTable.getBoolean("Tape", True)):
-                print("Tape")
-                #Lowers exposure to 0 if false
-                cap.autoExpose = False                
-                boxBlur = blurImg(frame, green_blur)
-                if(shuffleBoard.getBoolean("Camera Toggle", True)):
-                    threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
-                else:
-                    threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
-                processed = findTargets(frame, threshold)
-            else:
-                print("Ball")
-                # Checks if you just want camera for Cargo processing, by dent of everything else being false, true by default
-                cap.autoExpose = True
-                boxBlur = blurImg(frame, orange_blur)
-                threshold = threshold_video(lower_orange, upper_orange, boxBlur)
-                processed = findCargo(frame, threshold)
+            threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
+        processed = findTargets(frame, threshold)
+        #    else:
+        #        print("Ball")
+        #        # Checks if you just want camera for Cargo processing, by dent of everything else being false, true by default
+        #        cap.autoExpose = True
+        #        boxBlur = blurImg(frame, orange_blur)
+        #        threshold = threshold_video(lower_orange, upper_orange, boxBlur)
+        #        processed = findCargo(frame, threshold)
 
         
         try:
             if(shuffleBoard.getBoolean("Camera Toggle", True)):
-                cap.setStream("Front")
+                driverStationCap.setStream("Driver")
             else:
-                cap.setStream("Back")
+                driverStationCap.setStream("Back")
         except:
             print("Failed to set camera stream to front/back")
 
         #Puts timestamp of camera on netowrk tables
-        networkTable.putNumber("VideoTimestamp", timestamp)
-        streamViewer.frame = processed
+        networkTable.putNumber("VideoTimestamp", dsTimestamp)
+        if (shuffleBoard.getBoolean("CameraDebug", False)):
+            streamViewer.frame = processed
+        else:
+            streamViewer.frame = dsImg
         # update the FPS counter
         fps.update()
         #Flushes camera values to reduce latency
