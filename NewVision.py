@@ -91,7 +91,8 @@ class WebcamVideoStream:
 
         #Automatically sets exposure to 0 to track tape
         self.webcam = camera
-        self.webcam.setExposureManual(0)
+        self.webcam.setExposureManual(manual_exposure_level)
+        self.webcam.setBrightness(manual_brightness_level)
         #Some booleans so that we don't keep setting exposure over and over to the same value
         self.autoExpose = False
         self.prevValue = self.autoExpose
@@ -132,7 +133,8 @@ class WebcamVideoStream:
             else:
                 if (self.autoExpose != self.prevValue):
                     self.prevValue = self.autoExpose
-                    self.webcam.setExposureManual(0)
+                    self.webcam.setExposureManual(manual_exposure_level)
+                    self.webcam.setBrightness(manual_brightness_level)
             #gets the image and timestamp from cameraserver
             (self.timestamp, self.img) = self.stream.grabFrame(self.img)
 
@@ -147,6 +149,9 @@ class WebcamVideoStream:
         return self.stream.getError()
 
 ###################### PROCESSING OPENCV ################################
+
+manual_exposure_level = -2
+manual_brightness_level = 20
 
 #Angles in radians
 
@@ -172,12 +177,15 @@ verticalView = math.atan(math.tan(diagonalView/2) * (verticalAspect / diagonalAs
 H_FOCAL_LENGTH = image_width / (2*math.tan((horizontalView/2)))
 V_FOCAL_LENGTH = image_height / (2*math.tan((verticalView/2)))
 #blurs have to be odd
-green_blur = 7
+#blur was 7
+green_blur = 1
 orange_blur = 27
 
 # define range of green of retroreflective tape in HSV
-lower_green = np.array([42,0,237])
-upper_green = np.array([95, 24, 255])
+back_lower_green = np.array([42,0,237])
+back_upper_green = np.array([95, 24, 255])
+front_lower_green = np.array([60,92,125])
+front_upper_green = np.array([122, 255, 255])
 #define range of orange from cargo ball in HSV
 lower_orange = np.array([0,193,92])
 upper_orange = np.array([23, 255, 255])
@@ -345,6 +353,10 @@ def findBall(contours, image, centerX, centerY):
 
         return image
 
+def getTapeHeight(contour):
+    x,y,w,h = cv2.boundingRect(contour)
+    return h
+
 # Draws Contours and finds center and yaw of vision targets
 # centerX is center x coordinate of image
 # centerY is center y coordinate of image
@@ -355,11 +367,13 @@ def findTape(contours, image, centerX, centerY):
 
     if len(contours) >= 2:
         #Sort contours by area size (biggest to smallest)
-        cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
+        #cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
+        cntsSorted = sorted(contours, key=lambda x: getTapeHeight(x), reverse=True)
         maxHeight = 0
         
         matches = []
         biggestCnts = []
+        #print("NEW LOOP")
         for cnt in cntsSorted:
             
             # Get moments of contour; mainly for centroid
@@ -371,26 +385,33 @@ def findTape(contours, image, centerX, centerY):
             # calculate area of convex hull
             hullArea = cv2.contourArea(hull)
             # Filters contours based off of size
-            if (checkContours(cntArea, hullArea)):
+            #if (checkContours(cntArea, hullArea)):
+            if (True):
                 ### MOSTLY DRAWING CODE, BUT CALCULATES IMPORTANT INFO ###
                 # Gets the centeroids of contour
                 if M["m00"] != 0:
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
+
+                    boxX, boxY, boxW, boxH = cv2.boundingRect(cnt)
+                    #print ("X=" + str(boxX) + "  Y=" + str(boxY) + "  W=" + str(boxW) + "  H=" + str(boxH))
+
                     if(maxHeight == 0):
-                        maxHeight = cy
+                        maxHeight = boxH
                 else:
                     cx, cy = 0, 0
-                #only bother to process the target if it is close to the same height as the biggest blob
-                if(len(biggestCnts) < 13 and (cy < image_height - (image_height*.3)) and cy >= (maxHeight * .9)):
+                    #skip this loop
+                    continue
+                #only bother to process the target if it is in the top 70% of the screen and it is close to the same height as the biggest blob
+                if(len(biggestCnts) < 13 and (cy < image_height - (image_height*.3)) and boxH >= (maxHeight * .9)):
                     #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
                     rotation = getEllipseRotation(image, cnt)
-                    print("Max: " + str(maxHeight) + " cy: " + str(cy) + " " + " cx: "  + str(cx) + str(cy > (maxHeight * .9)))
+                    #print("Max: " + str(maxHeight) + " cy: " + str(cy) + " " + " cx: "  + str(cx) + str(cy > (maxHeight * .9)))
 
                     # Calculates yaw of contour (horizontal position in degrees)
-                    yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
+                    #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
                     # Calculates yaw of contour (horizontal position in degrees)
-                    pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                    #pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
 
                     ##### DRAWS CONTOUR######
                     # Gets rotated bounding rectangle of contour
@@ -688,6 +709,10 @@ def startCamera(config):
 
     camera.setConfigJson(json.dumps(config.config))
 
+    #if (config.name == "Front"):
+    #    print("Manually Setting Brightness for Front Cam")
+    #    camera.setBrightness(20)
+ 
     return cs, camera
 
 if __name__ == "__main__":
@@ -750,17 +775,23 @@ if __name__ == "__main__":
             continue
         #Checks if you just want camera for driver (No processing), False by default
         if(networkTable.getBoolean("Driver", False)):
+            print("Driver")
             cap.autoExpose = True
             processed = frame
         else:
             # Checks if you just want camera for Tape processing , False by default
             if(networkTable.getBoolean("Tape", True)):
-                #Lowers exposure to 0
-                cap.autoExpose = False
+                print("Tape")
+                #Lowers exposure to 0 if false
+                cap.autoExpose = False                
                 boxBlur = blurImg(frame, green_blur)
-                threshold = threshold_video(lower_green, upper_green, boxBlur)
+                if(shuffleBoard.getBoolean("Camera Toggle", True)):
+                    threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
+                else:
+                    threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
                 processed = findTargets(frame, threshold)
             else:
+                print("Ball")
                 # Checks if you just want camera for Cargo processing, by dent of everything else being false, true by default
                 cap.autoExpose = True
                 boxBlur = blurImg(frame, orange_blur)
