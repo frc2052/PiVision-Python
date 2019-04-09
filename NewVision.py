@@ -91,8 +91,8 @@ class WebcamVideoStream:
 
         #Automatically sets exposure to 0 to track tape
         self.webcam = camera
-        self.webcam.setExposureManual(manual_exposure_level)
-        self.webcam.setBrightness(manual_brightness_level)
+        #self.webcam.setExposureManual(manual_exposure_level)
+        #self.webcam.setBrightness(manual_brightness_level)
         #Some booleans so that we don't keep setting exposure over and over to the same value
         self.autoExpose = False
         self.prevValue = self.autoExpose
@@ -182,10 +182,10 @@ back_green_blur = 7
 orange_blur = 27
 
 # define range of green of retroreflective tape in HSV
-back_lower_green = np.array([42,0,237])
-back_upper_green = np.array([95, 24, 255])
-front_lower_green = np.array([60,92,125])
-front_upper_green = np.array([122, 255, 255])
+back_lower_green = np.array([82,77,161])
+back_upper_green = np.array([133,212, 255])
+front_lower_green = np.array([40,142,62])
+front_upper_green = np.array([93, 255, 172])
 
 #Flip image if camera mounted upside down
 def flipImage(frame):
@@ -378,7 +378,8 @@ def findTape(contours, image, centerX, centerY):
                     #(255, 255, 255))
         if (shuffleBoard.getBoolean("CameraDebug", False)):
             cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
-
+            cv2.line(image, (int(shuffleBoard.getNumber("centerOffset", 15)+finalTarget[0]), screenHeight), (int(shuffleBoard.getNumber("centerOffset", 15)+finalTarget[0]), 0), (255,255,0), 2)
+        
         currentAngleError = finalTarget[1]
         # pushes vision target angle to network tables
         networkTable.putNumber("tapeYaw", currentAngleError)
@@ -607,7 +608,7 @@ if __name__ == "__main__":
     driverStationCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "DriverStation").start()
     visionCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "VisionProcessing").start()
     driverStationCap.setStream("Driver")
-    driverStationCap.autoExpose = True
+    #driverStationCap.autoExpose = True
     visionCap.setStream("Front")
     
     # (optional) Setup a CvSource. This will send images back to the Dashboard
