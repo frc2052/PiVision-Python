@@ -10,8 +10,8 @@
 
 # This is meant to be used in conjuction with WPILib Raspberry Pi image: https://github.com/wpilibsuite/FRCVision-pi-gen
 #----------------------------------------------------------------------------
-#import board
-#import neopixel
+import board
+import neopixel
 import json
 import time
 import sys
@@ -24,13 +24,10 @@ import cv2
 import numpy as np
 from networktables import NetworkTables
 import math
-########### SET RESOLUTION TO 256x144 !!!! ############
-
-
-# import the necessary packages
 import datetime
+import time
 
-#pixels = neopixel.NeoPixel(board.D18, 270, brightness=0.5, auto_write=False)
+########### SET RESOLUTION TO 256x144 !!!! ############
 
 class driverLights:
     def __init__(self, sboard): 
@@ -44,33 +41,34 @@ class driverLights:
         self.stopped = True
 
     def run(self):
-        while not self.stopped:
-            status = sboard.getString("LedStatus")
-            centerValue = sboard.getNumber("xPercent")
+        print("Starting LED")
+        pixels = neopixel.NeoPixel(board.D10, 59, brightness=0.5, auto_write=False)
+        print("Have Pixels")
+        blue = (0, 0, 255)
+        red = (255, 0, 0)
+        yellow = (255, 255, 0)
+        black = (0, 0, 0)
+        purple = (255, 0, 255)
 
+        while not self.stopped:            
+            #status = sboard.getString("LedStatus")
+            #centerValue = sboard.getNumber("xPercent")
+            status = 'vision'
+            centerValue = .5
+            pixels.fill(black) #clear last status
             if status == 'climber':
-                pixels[0, 20] = (0, 0, 255)
-                pixels[39, 58] = (0,0,255)
-                #blue
-
+                for x in range(0,20):
+                    pixels[x] = blue
+                for x in range(39,59):
+                    pixels[x] = blue
             elif status == 'rocket1':
-                pixels[:] = (255, 0, 0)
-                #red
-
+                pixels.fill(red)
             elif status == 'rocket2':
-                pixels[:] = (255, 255, 0)
-                #yellow
-
+                pixels.fill(yellow)
             elif status == 'vision':
                 index = math.floor(17*centerValue)
-                pixels[21, 38] = (0, 0, 0)
-                pixels[index + 21] = (255, 0, 255) 
-                #blue
-            else: 
-                pixels [:] = (0, 0, 0)
-
-    def setColor(pos, color):
-        pixels[pos] = (color)
+                pixels[index + 21] = purple 
+            pixels.show()
 
 #Class to examine Frames per second of camera stream. Currently not used.
 class FPS:
@@ -629,7 +627,7 @@ if __name__ == "__main__":
     networkTable = NetworkTables.getTable('ChickenVision')
     shuffleBoard = NetworkTables.getTable('SmartDashboard')
     
-    #leds = driverLights(shuffleBoard)
+    leds = driverLights(shuffleBoard).start()
 
     if server:
         print("Setting up NetworkTables server")
@@ -642,96 +640,115 @@ if __name__ == "__main__":
     # start cameras
     cameras = []
     streams = []
+
+    foundDriver = False
+    foundFront = False
+    foundBack = False
     for cameraConfig in cameraConfigs:
+        if cameraConfig.name == "Front":
+            foundFront = True
+        elif cameraConfig.name == "Back":
+            foundBack = True
+        elif cameraConfig.name == "Driver":
+            foundDriver = True
         cs, cameraCapture = startCamera(cameraConfig)
         streams.append(cs)
         cameras.append(cameraCapture)
     #Get the first camera
 
-    webcam = cameras[0]
-    cameraServer = streams[0]
-    #Start thread reading camera
-    driverStationCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "DriverStation").start()
-    visionCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "VisionProcessing").start()
-    driverStationCap.setStream("Driver")
-    #driverStationCap.autoExpose = True
-    visionCap.setStream("Front")
-    
-    # (optional) Setup a CvSource. This will send images back to the Dashboard
-    # Allocating new images is very expensive, always try to preallocate
-    img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
-    #Start thread outputing stream
-    streamViewer = VideoShow(image_width,image_height, cameraServer, frame=img).start()
-    fps = FPS().start()
-    #TOTAL_FRAMES = 200;
-    # loop forever
-    while True:
-        # Tell the CvSink to grab a frame from the camera and put it
-        # in the source image.  If there is an error notify the output.
-        #get image for driver camera - this will be front or back depending on which driver selected
-        dsTimestamp, dsImg = driverStationCap.read()        
-        vTimestamp, vImg = visionCap.read()        
-        #use "flipImage(img)" if the camera is upside down
+    if len(cameras) == 0:
+        print("No Cameras Attached")
+    else:
+        webcam = cameras[0]
+        cameraServer = streams[0]
+        #Start thread reading camera
+        if foundDriver:
+            driverStationCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "DriverStation").start()
+            driverStationCap.setStream("Driver")
+            #driverStationCap.autoExpose = True
+        if foundFront:
+            visionCap = WebcamVideoStream(webcam, cameraServer, image_width, image_height, "VisionProcessing").start()
+            visionCap.setStream("Front")
+        
+        # (optional) Setup a CvSource. This will send images back to the Dashboard
+        # Allocating new images is very expensive, always try to preallocate
+        img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
+        #Start thread outputing stream
+        streamViewer = VideoShow(image_width,image_height, cameraServer, frame=img).start()
+        fps = FPS().start()
+        #TOTAL_FRAMES = 200;
+        print("Front (vision): " + str(foundFront) + "  Driver (front): " + str(foundDriver) + "  Back: " + str(foundBack)) 
+        # loop forever
+        while True:
+            # Tell the CvSink to grab a frame from the camera and put it
+            # in the source image.  If there is an error notify the output.
+            #get image for driver camera - this will be front or back depending on which driver selected
+            if foundDriver: #starts as front driver camera
+                dsTimestamp, dsImg = driverStationCap.read()
+            if foundFront: #starts as front vision camera     
+                vTimestamp, vImg = visionCap.read()        
+            #use "flipImage(img)" if the camera is upside down
 
-        isProcessingFrontVision = shuffleBoard.getBoolean("Camera Toggle", True)
-        isDebuggingVision = shuffleBoard.getBoolean("CameraDebug", False)
+            isProcessingFrontVision = shuffleBoard.getBoolean("Camera Toggle", True)
+            isDebuggingVision = shuffleBoard.getBoolean("CameraDebug", False)
 
-        if isProcessingFrontVision:
-            #do vision proccessing
-            if vTimestamp == 0: #failed to capture image
-                if isDebuggingVision:
-                    streamViewer.notifyError(visionCap.getError())
-            else:
-                boxBlur = blurImg(vImg, front_green_blur)
-                threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
-                processed = findTargets(vImg, threshold)
-            
-            #send image back
-            if isDebuggingVision:
-                networkTable.putNumber("VideoTimestamp", vTimestamp)
-                streamViewer.frame = processed #send back processed image
-            else:
-                if dsTimestamp == 0: #failed to capture image
-                    streamViewer.notifyError(driverStationCap.getError())
-                else:   
-                    networkTable.putNumber("VideoTimestamp", dsTimestamp)                 
-                    streamViewer.frame = dsImg #send back driver image
-        else: #back vision tracking
-            #do vision proccessing
-            if dsTimestamp == 0: #failed to capture image
-                streamViewer.notifyError(driverStationCap.getError())
-            else:
-                boxBlur = blurImg(dsImg, back_green_blur)
-                threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
-                processed = findTargets(dsImg, threshold)
-
+            if isProcessingFrontVision:
+                #do vision proccessing
+                if foundFront:
+                    if vTimestamp == 0: #failed to capture image
+                        if isDebuggingVision:
+                            streamViewer.notifyError(visionCap.getError())
+                    else:
+                        boxBlur = blurImg(vImg, front_green_blur)
+                        threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
+                        processed = findTargets(vImg, threshold)
+                
                 #send image back
-                if isDebuggingVision:
+                if isDebuggingVision and foundFront:
                     networkTable.putNumber("VideoTimestamp", vTimestamp)
                     streamViewer.frame = processed #send back processed image
+                elif foundDriver:
+                    if dsTimestamp == 0: #failed to capture image
+                        streamViewer.notifyError(driverStationCap.getError())
+                    else:   
+                        networkTable.putNumber("VideoTimestamp", dsTimestamp)                 
+                        streamViewer.frame = dsImg #send back driver image
+            elif foundBack: #back vision tracking
+                #do vision proccessing
+                if dsTimestamp == 0: #failed to capture image
+                    streamViewer.notifyError(driverStationCap.getError())
                 else:
-                    networkTable.putNumber("VideoTimestamp", dsTimestamp)
-                    streamViewer.frame = dsImg #send back driver image
+                    boxBlur = blurImg(dsImg, back_green_blur)
+                    threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
+                    processed = findTargets(dsImg, threshold)
 
-        # update the FPS counter
-        fps.update()
-        #Flushes camera values to reduce latency
-        ntinst.flush()
+                    #send image back
+                    if isDebuggingVision:
+                        networkTable.putNumber("VideoTimestamp", vTimestamp)
+                        streamViewer.frame = processed #send back processed image
+                    else:
+                        networkTable.putNumber("VideoTimestamp", dsTimestamp)
+                        streamViewer.frame = dsImg #send back driver image
 
-        #set the front/back camera the driver has selected - will be used in next loop
-        try:
-            if(shuffleBoard.getBoolean("Camera Toggle", True)):
-                driverStationCap.setStream("Driver")
-            else:
-                driverStationCap.setStream("Back")
-        except:
-            print("Failed to set camera stream to front/back")
+            # update the FPS counter
+            fps.update()
+            #Flushes camera values to reduce latency
+            ntinst.flush()
 
-    #Doesn't do anything at the moment. You can easily get this working by indenting these three lines
-    # and setting while loop to: while fps._numFrames < TOTAL_FRAMES
-    fps.stop()
-    print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-    print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+            #set the front/back camera the driver has selected - will be used in next loop
+            try:
+                if foundDriver and shuffleBoard.getBoolean("Camera Toggle", True):
+                    driverStationCap.setStream("Driver")
+                elif foundBack:
+                    driverStationCap.setStream("Back")
+            except:
+                print("Failed to set camera stream to front/back")
+                    
+        #Doesn't do anything at the moment. You can easily get this working by indenting these three lines
+        # and setting while loop to: while fps._numFrames < TOTAL_FRAMES
+        fps.stop()
+        print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
 
 
