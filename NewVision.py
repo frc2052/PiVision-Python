@@ -10,11 +10,13 @@
 
 # This is meant to be used in conjuction with WPILib Raspberry Pi image: https://github.com/wpilibsuite/FRCVision-pi-gen
 #----------------------------------------------------------------------------
-
+#import board
+#import neopixel
 import json
 import time
 import sys
 from threading import Thread
+
 
 from cscore import CameraServer, VideoSource
 from networktables import NetworkTablesInstance
@@ -27,6 +29,48 @@ import math
 
 # import the necessary packages
 import datetime
+
+#pixels = neopixel.NeoPixel(board.D18, 270, brightness=0.5, auto_write=False)
+
+class driverLights:
+    def __init__(self, sboard): 
+        self.stopped = False
+
+    def start(self):
+        Thread(target=self.run, args=()).start()
+        return self
+
+    def stop(self):
+        self.stopped = True
+
+    def run(self):
+        while not self.stopped:
+            status = sboard.getString("LedStatus")
+            centerValue = sboard.getNumber("xPercent")
+
+            if status == 'climber':
+                pixels[0, 20] = (0, 0, 255)
+                pixels[39, 58] = (0,0,255)
+                #blue
+
+            elif status == 'rocket1':
+                pixels[:] = (255, 0, 0)
+                #red
+
+            elif status == 'rocket2':
+                pixels[:] = (255, 255, 0)
+                #yellow
+
+            elif status == 'vision':
+                index = math.floor(17*centerValue)
+                pixels[21, 38] = (0, 0, 0)
+                pixels[index + 21] = (255, 0, 255) 
+                #blue
+            else: 
+                pixels [:] = (0, 0, 0)
+
+    def setColor(pos, color):
+        pixels[pos] = (color)
 
 #Class to examine Frames per second of camera stream. Currently not used.
 class FPS:
@@ -584,6 +628,8 @@ if __name__ == "__main__":
     #Name of network table - this is how it communicates with robot. IMPORTANT
     networkTable = NetworkTables.getTable('ChickenVision')
     shuffleBoard = NetworkTables.getTable('SmartDashboard')
+    
+    #leds = driverLights(shuffleBoard)
 
     if server:
         print("Setting up NetworkTables server")
