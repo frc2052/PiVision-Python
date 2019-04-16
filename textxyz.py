@@ -303,34 +303,19 @@ def findTape(contours, image, centerX, centerY):
                 #      negative tilt means rotated to left
                 # If left contour rotation is tilted to the left then skip iteration
                 if (tilt1 > 0):
-                    if (cx1 > cx2):
-                        print("tilts: ", tilt1, cx1, tilt2, cx2)
+                    if (cx1 > cx2): #WARNING CHANGED < to >
                         continue
                 # If left contour rotation is tilted to the left then skip iteration
                 if (tilt2 > 0):
-                    if (cx2 < cx1):
+                    if (cx2 < cx1): #WARNING CHANGED > to <
                         continue
                 #Angle from center of camera to target (what you should pass into gyro)
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
                 #Make sure no duplicates, then append
-                if [centerOfTarget, yawToTarget, avgHeight] not in targets:
-                    targets.append([centerOfTarget, yawToTarget, avgHeight])
+                if [centerOfTarget, yawToTarget, avgHeight, biggestCnts[i][3], biggestCnts[i+1][3]] not in targets:
+                    targets.append([centerOfTarget, yawToTarget, avgHeight, biggestCnts[i][3], biggestCnts[i+1][3]])
                     print("adding target")
                     
-                    rect1 = cv2.minAreaRect(biggestCnts[i][3])
-                    box1 = cv2.boxPoints(rect1)
-                    box1 = np.int0(box1)
-                    cv2.drawContours(image,[box1],0,(0,191,255),2)
-
-                    rect2 = cv2.minAreaRect(biggestCnts[i+ 1][3])
-                    box2 = cv2.boxPoints(rect2)
-                    box2 = np.int0(box2)
-                    cv2.drawContours(image,[box2],0,(0,191,255),2)
-                    
-                    targetP = np.concatenate([box1,box2])
-                    targetPoints = np.vstack(targetP[:, :]).astype(dtype=np.float32)
-                    print("target Points",targetPoints)
-    
     #Check if there are targets seen
     if (len(targets) > 0):
         # pushes that it sees vision target to network tables
@@ -339,6 +324,21 @@ def findTape(contours, image, centerX, centerY):
         #Sorts targets based on x coords to break any angle tie
         targets.sort(key=lambda x: math.fabs(x[0]))
         finalTarget = min(targets, key=lambda x: math.fabs(x[1]))
+        
+        rect1 = cv2.minAreaRect(finalTarget[3])
+        box1 = cv2.boxPoints(rect1)
+        box1 = np.int0(box1)
+        cv2.drawContours(image,[box1],0,(0,191,255),2)
+
+        rect2 = cv2.minAreaRect(finalTarget[4])
+        box2 = cv2.boxPoints(rect2)
+        box2 = np.int0(box2)
+        cv2.drawContours(image,[box2],0,(0,191,255),2)
+        
+        targetP = np.concatenate([box1,box2])
+        targetPoints = np.vstack(targetP[:, :]).astype(dtype=np.float32)
+        print("target Points",targetPoints)
+    
         # Puts the yaw on screen
         #Draws yaw of target + line where center of target is
         #cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
@@ -404,7 +404,7 @@ while(True):
     if(tarP.size >= 8):
         testcam(tarP, img)
 
-    #cv2.imshow("Video processed", processed)
+    cv2.imshow("Video processed", processed)
         
 
 cv2.destroyAllWindows()
