@@ -10,8 +10,8 @@
 
 # This is meant to be used in conjuction with WPILib Raspberry Pi image: https://github.com/wpilibsuite/FRCVision-pi-gen
 #----------------------------------------------------------------------------
-import board
-import neopixel
+#import board
+#import neopixel
 import json
 import time
 import sys
@@ -226,8 +226,8 @@ orange_blur = 27
 # define range of green of retroreflective tape in HSV
 back_lower_green = np.array([82,77,161])
 back_upper_green = np.array([133,212, 255])
-front_lower_green = np.array([40,142,62])
-front_upper_green = np.array([93, 255, 172])
+front_lower_green = np.array([25,22,104])
+front_upper_green = np.array([101, 159, 255])
 
 #Flip image if camera mounted upside down
 def flipImage(frame):
@@ -282,7 +282,7 @@ def getTapeHeight(contour):
 # centerX is center x coordinate of image
 # centerY is center y coordinate of image
 def findTape(contours, image, centerX, centerY):
-    screenHeight, screenWidth, channels = image.shape;
+    screenHeight, screenWidth, channels = image.shape
     #Seen vision targets (correct angle, adjacent to each other)
     targets = []
 
@@ -411,6 +411,7 @@ def findTape(contours, image, centerX, centerY):
     if (len(targets) > 0):
         # pushes that it sees vision target to network tables
         shuffleBoard.putBoolean("tapeDetected", True)
+        print("true")
         #Sorts targets based on x coords to break any angle tie
         targets.sort(key=lambda x: math.fabs(x[0]))
         finalTarget = min(targets, key=lambda x: math.fabs(x[1]))
@@ -430,6 +431,7 @@ def findTape(contours, image, centerX, centerY):
     else:
         # pushes that it deosn't see vision target to network tables
         shuffleBoard.putBoolean("tapeDetected", False)
+        print("false")
         shuffleBoard.putNumber("targetX", -1)
 
     #cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
@@ -627,7 +629,7 @@ if __name__ == "__main__":
     networkTable = NetworkTables.getTable('ChickenVision')
     shuffleBoard = NetworkTables.getTable('SmartDashboard')
     
-    leds = driverLights(shuffleBoard).start()
+    #leds = driverLights(shuffleBoard).start()
 
     if server:
         print("Setting up NetworkTables server")
@@ -690,23 +692,27 @@ if __name__ == "__main__":
             #use "flipImage(img)" if the camera is upside down
 
             isProcessingFrontVision = shuffleBoard.getBoolean("Camera Toggle", True)
-            isDebuggingVision = shuffleBoard.getBoolean("CameraDebug", False)
+            isDebuggingVision = shuffleBoard.getBoolean("CameraDebug", True)
 
+            processSuccess = False
             if isProcessingFrontVision:
                 #do vision proccessing
                 if foundFront:
                     if vTimestamp == 0: #failed to capture image
+                        print("timestamp is 0, failed to capture image")
                         if isDebuggingVision:
                             streamViewer.notifyError(visionCap.getError())
                     else:
                         boxBlur = blurImg(vImg, front_green_blur)
                         threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
                         processed = findTargets(vImg, threshold)
+                        processSuccess = True
                 
                 #send image back
                 if isDebuggingVision and foundFront:
                     networkTable.putNumber("VideoTimestamp", vTimestamp)
-                    streamViewer.frame = processed #send back processed image
+                    if(processSuccess):
+                        streamViewer.frame = processed #send back processed image
                 elif foundDriver:
                     if dsTimestamp == 0: #failed to capture image
                         streamViewer.notifyError(driverStationCap.getError())
@@ -721,11 +727,13 @@ if __name__ == "__main__":
                     boxBlur = blurImg(dsImg, back_green_blur)
                     threshold = threshold_video(back_lower_green, back_upper_green, boxBlur)
                     processed = findTargets(dsImg, threshold)
+                    processSuccess = True
 
                     #send image back
                     if isDebuggingVision:
                         networkTable.putNumber("VideoTimestamp", vTimestamp)
-                        streamViewer.frame = processed #send back processed image
+                        if(processSuccess):
+                            streamViewer.frame = processed #send back processed image
                     else:
                         networkTable.putNumber("VideoTimestamp", dsTimestamp)
                         streamViewer.frame = dsImg #send back driver image
