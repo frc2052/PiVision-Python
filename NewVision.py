@@ -224,10 +224,10 @@ back_green_blur = 7
 orange_blur = 27
 
 # define range of green of retroreflective tape in HSV
-back_lower_green = np.array([82,77,161])
-back_upper_green = np.array([133,212, 255])
-front_lower_green = np.array([25,22,104])
-front_upper_green = np.array([101, 159, 255])
+back_lower_green = np.array([42,0,215])
+back_upper_green = np.array([103,121, 255])
+front_lower_green = np.array([62,0,16])
+front_upper_green = np.array([180, 255, 255])
 
 #Flip image if camera mounted upside down
 def flipImage(frame):
@@ -314,7 +314,8 @@ def findTape(contours, image, centerX, centerY):
             #get the left, top, width, and height of the contour
             boxX, boxY, boxW, boxH = cv2.boundingRect(cnt)
             #only bother to process the target if is is above the bottom of the screen and it is close to the same height as the biggest blob
-            if((cy < bottomOfScreenY) and boxH >= (maxHeight * .9)):
+            if(boxH >= (maxHeight * .7)):
+                #(cy < bottomOfScreenY) and 
                 #print ("X=" + str(boxX) + "  Y=" + str(boxY) + "  W=" + str(boxW) + "  H=" + str(boxH))
 
                 if(maxHeight == 0):

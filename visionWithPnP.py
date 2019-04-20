@@ -197,16 +197,16 @@ class WebcamVideoStream:
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # Define object points for a 9x6 grid
-objp = np.zeros((6*8,3), np.float32)
-objp[:,:2] = np.mgrid[0:8,0:6].T.reshape(-1,2)
-objp = objp * 26
-#objp = np.array([[15,150,0],[-40,135,0],[0,0,0],[50,15,0],[290,150,0],[255,15,0],[305,0,0],[345,135,0]], dtype=np.float32)
+#objp = np.zeros((6*8,3), np.float32)
+#objp[:,:2] = np.mgrid[0:8,0:6].T.reshape(-1,2)
+#objp = objp * 26
+objp = np.array([[15,150,0],[-40,135,0],[0,0,0],[50,15,0],[290,150,0],[255,15,0],[305,0,0],[345,135,0]], dtype=np.float32)
 
 #print(objp)
 
-mtx = np.array([[653.90217311,   0,        302.49861937],[  0,         654.67708708, 254.90595383],[  0,          0,          1        ]])
+mtx = np.array([[ 351.47384217,    0,          182.12658705],[   0,          352.7558588,   140.84218877],[  0,          0,          1        ]])
 
-dist = np.array([[ 2.29930082e-01, -3.71583204e+00,  1.35057973e-02, -6.10760675e-03, 1.71232055e+01]])
+dist = np.array([[-0.19906607,  2.40377443,  0.01126655,  0.02318044, -7.727671  ]])
 
 # mtx = np.array([[846.45853739 ,   0,         316.32230442],[  0,         847.93343997, 228.07883833],[  0,          0,          1        ]])
 # dist = np.array([[-6.68957067e-02, -1.34039967e+00, -7.84647125e-03, -1.59645273e-02,1.05726650e+01]])
@@ -262,8 +262,8 @@ orange_blur = 27
 # define range of green of retroreflective tape in HSV
 back_lower_green = np.array([82,77,161])
 back_upper_green = np.array([133,212, 255])
-front_lower_green = np.array([25,22,104])
-front_upper_green = np.array([101, 159, 255])
+front_lower_green = np.array([0,86,44])
+front_upper_green = np.array([180, 255, 255])
 
 #Flip image if camera mounted upside down
 def flipImage(frame):
@@ -294,6 +294,7 @@ def threshold_video(lower_color, upper_color, blur):
 
 # Finds the tape targets from the masked image and displays them on original stream + network tales
 def findTargets(frame, mask):
+    targetPoints = np.array([])
     # Finds contours
     _, contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_KCOS)
     # Take each frame
@@ -306,13 +307,14 @@ def findTargets(frame, mask):
     image = frame.copy()
     # Processes the contours, takes in (contours, output_image, (centerOfImage)
     if len(contours) != 0:
-        image = findTape(contours, image, centerX, centerY)
+        image, targetPoints = findTape(contours, image, centerX, centerY)
     # Shows the contours overlayed on the original video
-    return image
+    return image, targetPoints
 
 def getTapeHeight(contour):
     x,y,w,h = cv2.boundingRect(contour)
     return h
+
 
 # Draws Contours and finds center and yaw of vision targets
 # centerX is center x coordinate of image
@@ -321,15 +323,17 @@ def findTape(contours, image, centerX, centerY):
     screenHeight, screenWidth, channels = image.shape
     #Seen vision targets (correct angle, adjacent to each other)
     targets = []
+    targetPoints = np.array([])
 
     if len(contours) >= 2:
+        print("2 or more, 192")
         #Sort contours by height (biggest to smallest)
         cntsSorted = sorted(contours, key=lambda x: getTapeHeight(x), reverse=True)
         maxHeight = 0
         
         matches = []
         biggestCnts = []
-        bottomOfScreenY = image_height - (image_height*.3) #only bother to process the target if it is in the top 70%
+        bottomOfScreenY = image_height - (image_height*.01) #only bother to process the target if it is in the top 70%
         #print("NEW LOOP")
         for cnt in cntsSorted:  
             if len(biggestCnts) >= 4:
@@ -350,22 +354,22 @@ def findTape(contours, image, centerX, centerY):
             #get the left, top, width, and height of the contour
             boxX, boxY, boxW, boxH = cv2.boundingRect(cnt)
             #only bother to process the target if is is above the bottom of the screen and it is close to the same height as the biggest blob
-            if((cy < bottomOfScreenY) and boxH >= (maxHeight * .9)):
+            if( boxH >= (maxHeight * .75)): #(cy < bottomOfScreenY) and
                 #print ("X=" + str(boxX) + "  Y=" + str(boxY) + "  W=" + str(boxW) + "  H=" + str(boxH))
 
                 if(maxHeight == 0):
                     maxHeight = boxH #will be set on first loop, first item in array will be tallest
 
                 #draw a box around this contour if dubugging
-                if (shuffleBoard.getBoolean("CameraDebug", False)):
-                    cv2.rectangle(image, (boxX, boxY), (boxX + boxW, boxY + boxH), (23, 184, 80), 1)
-
+                #if (shuffleBoard.getBoolean("CameraDebug", False)):
+                cv2.rectangle(image, (boxX, boxY), (boxX + boxW, boxY + boxH), (23, 184, 80), 1)
                 #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE, DRAWS ELLIPSE IF IN DEBUG MODE ##########
                 rotation = getEllipseRotation(image, cnt)
 
                 if [cx, cy] not in matches:
                     matches.append([cx, cy])
                     biggestCnts.append([cx, cy, rotation, cnt, boxH])
+                    print("cy: ",cy, "cx: ", cx, "h: ", boxH)
 
                 ##### DRAW DEBUG CONTOUR######
                 # Gets rotated bounding rectangle of contour
@@ -409,6 +413,7 @@ def findTape(contours, image, centerX, centerY):
         biggestCnts = sorted(biggestCnts, key=lambda x: x[0])
         # Target Checking
         for i in range(len(biggestCnts) - 1):
+
             #Rotation of two adjacent contours
             tilt1 = biggestCnts[i][2]
             tilt2 = biggestCnts[i + 1][2]
@@ -431,48 +436,63 @@ def findTape(contours, image, centerX, centerY):
                 #      negative tilt means rotated to left
                 # If left contour rotation is tilted to the left then skip iteration
                 if (tilt1 > 0):
-                    if (cx1 < cx2):
+                    if (cx1 > cx2): #WARNING CHANGED < to >
                         continue
                 # If left contour rotation is tilted to the left then skip iteration
                 if (tilt2 > 0):
-                    if (cx2 < cx1):
+                    if (cx2 < cx1): #WARNING CHANGED > to <
                         continue
                 #Angle from center of camera to target (what you should pass into gyro)
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
                 #Make sure no duplicates, then append
-                if [centerOfTarget, yawToTarget, avgHeight] not in targets:
-                    targets.append([centerOfTarget, yawToTarget, avgHeight])
-    
+                if [centerOfTarget, yawToTarget, avgHeight, biggestCnts[i][3], biggestCnts[i+1][3]] not in targets:
+                    targets.append([centerOfTarget, yawToTarget, avgHeight, biggestCnts[i][3], biggestCnts[i+1][3]])
+                    print("adding target")
+                    
     #Check if there are targets seen
     if (len(targets) > 0):
         # pushes that it sees vision target to network tables
-        shuffleBoard.putBoolean("tapeDetected", True)
+        #shuffleBoard.putBoolean("tapeDetected", True)
         print("true")
         #Sorts targets based on x coords to break any angle tie
         targets.sort(key=lambda x: math.fabs(x[0]))
         finalTarget = min(targets, key=lambda x: math.fabs(x[1]))
+        
+        rect1 = cv2.minAreaRect(finalTarget[3])
+        box1 = cv2.boxPoints(rect1)
+        box1 = np.int0(box1)
+        cv2.drawContours(image,[box1],0,(0,191,255),2)
+
+        rect2 = cv2.minAreaRect(finalTarget[4])
+        box2 = cv2.boxPoints(rect2)
+        box2 = np.int0(box2)
+        cv2.drawContours(image,[box2],0,(0,191,255),2)
+        
+        targetP = np.concatenate([box1,box2])
+        targetPoints = np.vstack(targetP[:, :]).astype(dtype=np.float32)
+        #print("target Points",targetPoints)
+    
         # Puts the yaw on screen
         #Draws yaw of target + line where center of target is
         #cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
                     #(255, 255, 255))
-        if (shuffleBoard.getBoolean("CameraDebug", False)):
-            cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
-            cv2.line(image, (int(shuffleBoard.getNumber("centerOffset", 15)+finalTarget[0]), screenHeight), (int(shuffleBoard.getNumber("centerOffset", 15)+finalTarget[0]), 0), (255,255,0), 2)
+        #if (shuffleBoard.getBoolean("CameraDebug", False)):
+        #    cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
+        #    cv2.line(image, (int(shuffleBoard.getNumber("centerOffset", 15)+finalTarget[0]), screenHeight), (int(shuffleBoard.getNumber("centerOffset", 15)+finalTarget[0]), 0), (255,255,0), 2)
         
-        currentAngleError = finalTarget[1]
+        #currentAngleError = finalTarget[1]
         # pushes vision target angle to network tables
-        networkTable.putNumber("tapeYaw", currentAngleError)
-        shuffleBoard.putNumber("targetX", finalTarget[0])
-        shuffleBoard.putNumber("targetY", finalTarget[2])
+        #networkTable.putNumber("tapeYaw", currentAngleError)
+        #shuffleBoard.putNumber("targetX", finalTarget[0])
+        #shuffleBoard.putNumber("targetY", finalTarget[2])
     else:
         # pushes that it deosn't see vision target to network tables
-        shuffleBoard.putBoolean("tapeDetected", False)
+        #shuffleBoard.putBoolean("tapeDetected", False)
         print("false")
-        shuffleBoard.putNumber("targetX", -1)
+        #shuffleBoard.putNumber("targetX", -1)
 
     #cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
-
-    return image
+    return image, targetPoints
 
 
 #Forgot how exactly it works, but it works!
@@ -638,20 +658,29 @@ def readConfig():
 
     return True
 
-###################################
+################################### Code to find 2d points to 3d points
 
 
 def testcam(imgp, img):
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None,None)
+    #ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None,None)
 
-    print("dist\n", dist)
-    print("Camera calibration matrix\n", mtx)
-
+    #print("dist\n", dist)
+    #print("Camera calibration matrix\n", mtx)
+    
+    #print("world points", objp)
     b, rvec, tvec, inliers = cv2.solvePnPRansac(objp, imgp, mtx, dist)
     print("Rvec\n", rvec)
     print("\nTvec", tvec)
-
     
+    shuffleBoard.putNumber("TarX", tvec[0])
+    shuffleBoard.putNumber("TarY", tvec[1])
+    shuffleBoard.putNumber("TarZ", tvec[2])
+
+    shuffleBoard.putNumber("TarRotX", rvec[0])
+    shuffleBoard.putNumber("TarRotY", rvec[1])
+    shuffleBoard.putNumber("TarRotZ", rvec[2])
+    shuffleBoard.putBoolean("isVisionTarget", True)
+
     dst, jacobian = cv2.Rodrigues(rvec)
     x = tvec[0][0]
     y = tvec[2][0]
@@ -762,26 +791,27 @@ if __name__ == "__main__":
 
             #################################
 
-            gray = cv2.cvtColor(vImg,cv2.COLOR_BGR2GRAY)
+            if(False): #for use with checkerboard
+                gray = cv2.cvtColor(vImg,cv2.COLOR_BGR2GRAY)
 
-            # Find the chess board corners
-            ret, corners = cv2.findChessboardCorners(gray, (8,6), None)
-            print("found corners?", ret)
+                # Find the chess board corners
+                ret, corners = cv2.findChessboardCorners(gray, (8,6), None)
+                print("found corners?", ret)
 
-            # If found, add object points and image points
-            if ret == True:
-                objpoints.append(objp)
+                # If found, add object points and image points
+                if ret == True:
+                    objpoints.append(objp)
 
-                #Refine image points
-                cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
-                imgpoints.append(corners)
+                    #Refine image points
+                    cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+                    imgpoints.append(corners)
 
-                #Draw and display the corners
-                cv2.drawChessboardCorners(vImg, (8,6), corners, ret)
-                #cv2.imshow('img',img)
-                #cv2.waitKey(500)
-                #print(corners)
-                testcam(corners, vImg)
+                    #Draw and display the corners
+                    cv2.drawChessboardCorners(vImg, (8,6), corners, ret)
+                    #cv2.imshow('img',img)
+                    #cv2.waitKey(500)
+                    #print(corners)
+                    testcam(corners, vImg)
 
 
             ########################
@@ -790,13 +820,20 @@ if __name__ == "__main__":
                 #do vision proccessing
                 if foundFront:
                     if vTimestamp == 0: #failed to capture image
-                        print("timestamp is 0, failed to capture image")
+                        #print("timestamp is 0, failed to capture image")
                         if isDebuggingVision:
                             streamViewer.notifyError(visionCap.getError())
                     else:
+                        #EDITED FOR PNP
+                        undist = cv2.undistort(img, mtx, dist, None, mtx)
                         boxBlur = blurImg(vImg, front_green_blur)
                         threshold = threshold_video(front_lower_green, front_upper_green, boxBlur)
-                        processed = findTargets(vImg, threshold)
+                        processed, tarP = findTargets(vImg, threshold)
+                        
+                        if(tarP.size >= 8):
+                            testcam(tarP, img)
+                        else:
+                            shuffleBoard.putBoolean("isVisionTarget", False)
                         processSuccess = True
                 
                 #send image back
