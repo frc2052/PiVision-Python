@@ -18,6 +18,7 @@ import json
 import time
 import sys
 
+
 from cscore import CameraServer, VideoSource
 from networktables import NetworkTablesInstance
 import cv2
@@ -25,14 +26,13 @@ import numpy as np
 from networktables import NetworkTables
 import math
 
-
 ###################### PROCESSING OPENCV ################################
 
 #Angles in radians
 
 #image size ratioed to 16:9
-image_width = 480
-image_height = 270
+image_width = 240
+image_height = 135
 
 #Lifecam 3000 from datasheet
 #Datasheet: https://dl2jx7zfbtwvr.cloudfront.net/specsheets/WEBC1010.pdf
@@ -60,17 +60,23 @@ def flipImage(frame):
 # Takes in a frame, returns a masked frame
 def threshold_video(frame):
     img = frame.copy()
-    blur = cv2.medianBlur(img, 5)
+    #blur = cv2.blur(img, 7)
+    #blur = cv2.medianBlur(img, 3)
 
     # Convert BGR to HSV
-    hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-    # define range of red in HSV
-    lower_color = np.array([0,220,25])
-    upper_color = np.array([101, 255, 255])
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    #hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    # define range of green light in HSV
+    #lower_color = np.array([0,220,25])
+    #upper_color = np.array([101, 255, 255])
+    lower_color = np.array([60, 80, 215])
+    upper_color = np.array([110, 255, 255])
     # hold the HSV image to get only red colors
     mask = cv2.inRange(hsv, lower_color, upper_color)
 
+
     # Returns the masked imageBlurs video to smooth out image
+
 
     return mask
 
@@ -90,10 +96,44 @@ def findContours(frame, mask):
     image = frame.copy()
     # Processes the contours, takes in (contours, output_image, (centerOfImage) #TODO finding largest
     if len(contours) != 0:
+        #the following line will draw red lines around targets
+        #image = cv2.drawContours(frame, contours, -1, (0,0,255), 3)
         image = findTargets(contours, image, centerX, centerY)
     # Shows the contours overlayed on the original video
-    return image
 
+    img= frame.copy()
+    
+
+    #Drawing convexHull/
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    _, thresh = cv2.threshold(gray ,50, 255, cv2.THRESH_BINARY)
+    _, contour2, hierarchy = cv2.findContours( thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    #create am empty black image/
+
+
+    #draw contours and hull points/
+
+    #Creating hull array for convex hull points/
+    
+    #hull = []
+    
+
+    #calculate points for each contour
+    for i in range(len(contour2)):
+
+        #creating convex hull object for each contour
+        #hull.append(cv2.convexHull(contour2[i], False))
+
+        color_contours = (0, 225, 0)#this makes color for contours green/
+        color = (225, 0, 0) #makes color for convex hull blue/
+        #draw it with contour/
+    #    cv2.drawContours(image, contour2, i, color_contours, 1, 8, hierarchy)
+        #draw ith cpnvex hull object
+     #   cv2.drawContours(image, hull, i, color, 1, 8)
+    
+    return image
+    
 
 
 # Draws Contours and finds center and yaw of vision targets
@@ -109,17 +149,19 @@ def findTargets(contours, image, centerX, centerY):
         cntsSorted = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
 
         biggestCnts = []
+        posXs = []
         for cnt in cntsSorted:
             # Get moments of contour; mainly for centroid
             M = cv2.moments(cnt)
             # Get convex hull (bounding polygon on contour)
-            hull = cv2.convexHull(cnt)
+            #hull = cv2.convexHull(cnt)
             # Calculate Contour area
-            cntArea = cv2.contourArea(cnt)
+            #cntArea = cv2.contourArea(cnt)
             # calculate area of convex hull
-            hullArea = cv2.contourArea(hull)
+            #hullArea = cv2.contourArea(hull)
             # Filters contours based off of size
-            if (checkContours(cntArea, hullArea)):
+            #if (checkContours(cntArea, hullArea)):
+            if (True):
                 ### MOSTLY DRAWING CODE, BUT CALCULATES IMPORTANT INFO ###
                 # Gets the centeroids of contour
                 if M["m00"] != 0:
@@ -129,55 +171,62 @@ def findTargets(contours, image, centerX, centerY):
                     cx, cy = 0, 0
                 if(len(biggestCnts) < 13):
                     #### CALCULATES ROTATION OF CONTOUR BY FITTING ELLIPSE ##########
-                    rotation = getEllipseRotation(image, cnt)
+                    #rotation = getEllipseRotation(image, cnt)
 
                     # Calculates yaw of contour (horizontal position in degrees)
-                    yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
+                    #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
                     # Calculates yaw of contour (horizontal position in degrees)
-                    pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                    #pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
 
                     ##### DRAWS CONTOUR######
                     # Gets rotated bounding rectangle of contour
                     rect = cv2.minAreaRect(cnt)
+                    # Get the rotation of the rectangle
+                    #rect is the (top,left), (height,width), angle
+                    rotation = rect[2]
                     # Creates box around that rectangle
                     box = cv2.boxPoints(rect)
                     # Not exactly sure
                     box = np.int0(box)
                     # Draws rotated rectangle
-                    cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                    #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                    cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
 
 
                     # Calculates yaw of contour (horizontal position in degrees)
-                    yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
+                    #yaw = calculateYaw(cx, centerX, H_FOCAL_LENGTH)
                     # Calculates yaw of contour (horizontal position in degrees)
-                    pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
+                    #pitch = calculatePitch(cy, centerY, V_FOCAL_LENGTH)
 
 
                     # Draws a vertical white line passing through center of contour
                     cv2.line(image, (cx, screenHeight), (cx, 0), (255, 255, 255))
                     # Draws a white circle at center of contour
-                    cv2.circle(image, (cx, cy), 6, (255, 255, 255))
+                    #cv2.circle(image, (cx, cy), 6, (255, 255, 255))
 
                     # Draws the contours
-                    cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
+                    #cv2.drawContours(image, [cnt], 0, (23, 184, 80), 1)
 
                     # Gets the (x, y) and radius of the enclosing circle of contour
-                    (x, y), radius = cv2.minEnclosingCircle(cnt)
+                    #(x, y), radius = cv2.minEnclosingCircle(cnt)
                     # Rounds center of enclosing circle
-                    center = (int(x), int(y))
+                    #center = (int(x), int(y))
                     # Rounds radius of enclosning circle
-                    radius = int(radius)
+                    #radius = int(radius)
                     # Makes bounding rectangle of contour
-                    rx, ry, rw, rh = cv2.boundingRect(cnt)
-                    boundingRect = cv2.boundingRect(cnt)
+                    #rx, ry, rw, rh = cv2.boundingRect(cnt)
+                    #boundingRect = cv2.boundingRect(cnt)
                     # Draws countour of bounding rectangle and enclosing circle in green
-                    cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
+                    #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
 
-                    cv2.circle(image, center, radius, (23, 184, 80), 1)
+                    #cv2.circle(image, center, radius, (23, 184, 80), 1)
 
                     # Appends important info to array
-                    if [cx, cy, rotation, cnt] not in biggestCnts:
-                         biggestCnts.append([cx, cy, rotation, cnt])
+                    #don't append if already in the array - determined by X position
+                    #if [cx, cy, rotation, cnt] not in biggestCnts:
+                    if cs not in posXs:
+                        posXs.append(cx)
+                        biggestCnts.append([cx, cy, rotation, cnt])
 
 
         # Sorts array based on coordinates (leftmost to rightmost) to make sure contours are adjacent
@@ -188,6 +237,12 @@ def findTargets(contours, image, centerX, centerY):
             tilt1 = biggestCnts[i][2]
             tilt2 = biggestCnts[i + 1][2]
 
+            #openCV function minAreaRect returns a value between -90 and 0 (excluding 0) 
+            #testing shows that reflective tape for 2019 should be about -75 and -15 degrees
+            #so adding 45 degrees should result in two values on opposite sides of 0 for the test below
+            tilt1 = tilt1 + 45
+            tilt2 = tilt2 + 45 
+
             #x coords of contours
             cx1 = biggestCnts[i][0]
             cx2 = biggestCnts[i + 1][0]
@@ -195,6 +250,9 @@ def findTargets(contours, image, centerX, centerY):
             cy1 = biggestCnts[i][1]
             cy2 = biggestCnts[i + 1][1]
             # If contour angles are opposite
+
+            #print("Angles: " + str(tilt1) + " : " + str(tilt2))
+
             if (np.sign(tilt1) != np.sign(tilt2)):
                 centerOfTarget = math.floor((cx1 + cx2) / 2)
                 #ellipse negative tilt means rotated to right
@@ -203,16 +261,18 @@ def findTargets(contours, image, centerX, centerY):
                 # If left contour rotation is tilted to the left then skip iteration
                 if (tilt1 > 0):
                     if (cx1 < cx2):
+                        print("Skipping contour - left is pointing left")
                         continue
-                # If left contour rotation is tilted to the left then skip iteration
+                # If right contour rotation is tilted to the right then skip iteration
                 if (tilt2 > 0):
                     if (cx2 < cx1):
+                        print("Skipping contour - right is pointing right")
                         continue
                 #Angle from center of camera to target (what you should pass into gyro)
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
                 
                 #Push to NetworkTable
-                table.putNumber("yawToTarget", yawToTarget)
+                #table.putNumber("yawToTarget", yawToTarget)
                 
                 #Make sure no duplicates, then append
                 if [centerOfTarget, yawToTarget] not in targets:
@@ -448,31 +508,67 @@ if __name__ == "__main__":
         cs, cameraCapture = startCamera(cameraConfig)
         streams.append(cs)
         cameras.append(cameraCapture)
+    
     #Get the first camera
-    cameraServer = streams[0]
+    cameraServer0 = streams[0]
+    
     # Get a CvSink. This will capture images from the camera
-    cvSink = cameraServer.getVideo()
+    cvSink0 = cameraServer0.getVideo()
+    outputStream = cameraServer0.putVideo("stream", image_width, image_height)
 
-    # (optional) Setup a CvSource. This will send images back to the Dashboard
-    outputStream = cameraServer.putVideo("stream", image_width, image_height)
+
+    if len(streams)>1:
+        cameraServer1 = streams[1]
+        cvSink1 = cameraServer1.getVideo()
+        outputStream2 = cameraServer1.putVideo("stream1", image_width, image_height)
+
+    
     # Allocating new images is very expensive, always try to preallocate
     img = np.zeros(shape=(image_height, image_width, 3), dtype=np.uint8)
 
+    table.putNumber('camIndex', 0)
+    
     # loop forever
     while True:
-        # Tell the CvSink to grab a frame from the camera and put it
-        # in the source image.  If there is an error notify the output.
-        timestamp, img = cvSink.grabFrame(img)
-        frame = img
-        #frame = flipImage(img)
-        if timestamp == 0:
-            # Send the output the error.
-            outputStream.notifyError(cvSink.getError());
-            # skip the rest of the current iteration
-            continue
+
+        camIndex = table.getNumber('camIndex', 0)
+
+        print("CamIndex " + str(camIndex))
+        if int(camIndex) == 0:
+            print("FRONT CAM")
+            # Tell the CvSink to grab a frame from the camera and put it
+            # in the source image.  If there is an error notify the output.
+            timestamp, img = cvSink0.grabFrame(img)
+            frame = img
+            #frame = flipImage(img)
+            if timestamp == 0:
+                # Send the output the error.
+                outputStream.notifyError(cvSink0.getError())
+                # skip the rest of the current iteration
+                continue
+            threshold = threshold_video(frame)
+            #outputStream.putFrame(threshold)
+            processed = findContours(frame, threshold)
+            # (optional) send some image back to the dashboard
+            outputStream.putFrame(processed)
 
 
-        threshold = threshold_video(frame)
-        processed = findContours(frame, threshold)
-        # (optional) send some image back to the dashboard
-        outputStream.putFrame(processed)
+        if int(camIndex) == 1:
+            print("BACK CAM")
+            # Tell the CvSink to grab a frame from the camera and put it
+            # in the source image.  If there is an error notify the output.
+            timestamp, img = cvSink1.grabFrame(img)
+            frame = img
+            #frame = flipImage(img)
+            if timestamp == 0:
+                # Send the output the error.
+                outputStream2.notifyError(cvSink1.getError())
+                # skip the rest of the current iteration
+                continue
+            threshold = threshold_video(frame)
+            #outputStream.putFrame(threshold)
+            processed = findContours(frame, threshold)
+            # (optional) send some image back to the dashboard
+            outputStream2.putFrame(processed)
+
+
